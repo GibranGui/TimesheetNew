@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,12 +40,18 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -61,10 +68,48 @@ import com.example.ui.viewmodel.GoogleAccountState
 fun GoogleDriveScreen(
     accountState: GoogleAccountState,
     pendingSyncCount: Int,
-    onSignInClick: () -> Unit,
+    onSignInClick: (String) -> Unit,
     onSignOutClick: () -> Unit,
     onSyncNowClick: () -> Unit
 ) {
+    var showLoginDialog by remember { mutableStateOf(false) }
+    var emailInput by remember { mutableStateOf(accountState.email ?: "andreandika1997@gmail.com") }
+
+    if (showLoginDialog) {
+        AlertDialog(
+            onDismissRequest = { showLoginDialog = false },
+            title = { Text("Login Akun Google") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Masukkan email akun Google yang ingin digunakan untuk sinkronisasi Google Sheets:")
+                    OutlinedTextField(
+                        value = emailInput,
+                        onValueChange = { emailInput = it },
+                        label = { Text("Email Google") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLoginDialog = false
+                        onSignInClick(emailInput.ifBlank { "user@gmail.com" })
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MiningAmber)
+                ) {
+                    Text("Masuk", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLoginDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -158,7 +203,7 @@ fun GoogleDriveScreen(
                         )
 
                         Button(
-                            onClick = onSignInClick,
+                            onClick = { showLoginDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth().height(48.dp).testTag("btn_login_google")

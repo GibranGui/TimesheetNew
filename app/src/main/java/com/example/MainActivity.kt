@@ -292,7 +292,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                         GoogleDriveScreen(
                             accountState = googleAccount,
                             pendingSyncCount = pendingSyncCount,
-                            onSignInClick = { viewModel.signInGoogle() },
+                            onSignInClick = { email -> viewModel.signInGoogle(email) },
                             onSignOutClick = { viewModel.signOutGoogle() },
                             onSyncNowClick = { viewModel.syncAllPending() }
                         )

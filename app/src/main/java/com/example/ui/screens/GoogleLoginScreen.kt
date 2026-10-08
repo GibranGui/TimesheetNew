@@ -27,9 +27,15 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +54,8 @@ fun GoogleLoginScreen(
     onSignInSuccess: (email: String) -> Unit,
     onContinueOffline: () -> Unit
 ) {
+    var emailInput by remember { mutableStateOf("andreandika1997@gmail.com") }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -153,11 +161,32 @@ fun GoogleLoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            OutlinedTextField(
+                value = emailInput,
+                onValueChange = { emailInput = it },
+                label = { Text("Email Akun Google") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("input_google_email"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MiningAmber,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedLabelColor = MiningAmber,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // TOMBOL UTAMA: MASUK DENGAN GOOGLE
             Button(
-                onClick = { onSignInSuccess("andreandika1997@gmail.com") },
+                onClick = { onSignInSuccess(emailInput.ifBlank { "user@gmail.com" }) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier

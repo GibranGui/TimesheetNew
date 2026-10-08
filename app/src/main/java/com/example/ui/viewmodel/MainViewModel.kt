@@ -17,8 +17,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,7 +32,8 @@ data class UpdateInfo(
     val isAvailable: Boolean = false,
     val currentVersion: String = "1.0.0",
     val latestVersion: String = "1.0.0",
-    val message: String = ""
+    val message: String = "",
+    val downloadUrl: String = ""
 )
 
 data class GoogleAccountState(
@@ -260,20 +266,64 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun checkUpdateManual() {
-        if (activeShift.value != null) {
-            _updateInfo.value = UpdateInfo(
-                isAvailable = true,
-                currentVersion = "1.0.0",
-                latestVersion = "1.0.1",
-                message = "Versi baru tersedia. Update dapat dilakukan setelah shift selesai."
-            )
-        } else {
-            _updateInfo.value = UpdateInfo(
-                isAvailable = false,
-                currentVersion = "1.0.0",
-                latestVersion = "1.0.0",
-                message = "Aplikasi sudah menggunakan versi terbaru (v1.0.0)."
-            )
+        viewModelScope.launch {
+            _updateInfo.value = _updateInfo.value.copy(message = "Memeriksa pembaruan dari GitHub...")
+            try {
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url("https://api.github.com/repos/GibranGui/TimesheetNew/releases/latest")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .build()
+
+                withContext(Dispatchers.IO) {
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val bodyString = response.body?.string() ?: ""
+                            val json = JSONObject(bodyString)
+                            val tagName = json.optString("tag_name", "v1.0.0").removePrefix("v").trim()
+                            val htmlUrl = json.optString("html_url", "https://github.com/GibranGui/TimesheetNew/releases")
+
+                            var apkUrl = htmlUrl
+                            val assets = json.optJSONArray("assets")
+                            if (assets != null) {
+                                for (i in 0 until assets.length()) {
+                                    val asset = assets.getJSONObject(i)
+                                    val name = asset.optString("name", "")
+                                    if (name.endsWith(".apk", ignoreCase = true)) {
+                                        apkUrl = asset.optString("browser_download_url", htmlUrl)
+                                        break
+                                    }
+                                }
+                            }
+
+                            val currentVersion = "1.0.0"
+                            val hasNewer = tagName.isNotEmpty() && tagName != currentVersion
+
+                            _updateInfo.value = UpdateInfo(
+                                isAvailable = hasNewer,
+                                currentVersion = currentVersion,
+                                latestVersion = tagName.ifEmpty { currentVersion },
+                                message = if (hasNewer) "Versi baru v$tagName tersedia!" else "Aplikasi sudah menggunakan versi terbaru (v$currentVersion).",
+                                downloadUrl = apkUrl
+                            )
+                        } else {
+                            _updateInfo.value = UpdateInfo(
+                                isAvailable = false,
+                                currentVersion = "1.0.0",
+                                latestVersion = "1.0.0",
+                                message = "Belum ada rilis GitHub (GitHub Releases kosong)."
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _updateInfo.value = UpdateInfo(
+                    isAvailable = false,
+                    currentVersion = "1.0.0",
+                    latestVersion = "1.0.0",
+                    message = "Gagal terhubung ke GitHub: ${e.localizedMessage ?: "Periksa koneksi internet"}"
+                )
+            }
         }
     }
 

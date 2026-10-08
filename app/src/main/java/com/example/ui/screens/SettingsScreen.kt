@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -218,6 +220,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
+                val context = LocalContext.current
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MiningAmber)
@@ -239,7 +242,21 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .testTag("btn_check_update")
                     ) {
-                        Text("CEK PEMBARUAN SEKARANG")
+                        Text("CEK PEMBARUAN DARI GITHUB")
+                    }
+
+                    if (updateInfo.isAvailable && updateInfo.downloadUrl.isNotEmpty()) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo.downloadUrl))
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Text("UNDUH & INSTALL PEMBARUAN", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                        }
                     }
                 }
             }

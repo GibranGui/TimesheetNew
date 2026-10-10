@@ -18,9 +18,14 @@ data class GpsEvaluationResult(
     val distanceToLoadingMeters: Double,
     val isRitaseTriggered: Boolean,
     val accuracy: Float,
-    val debugReason: String
+    val statusMessage: String
 )
 
+/**
+ * Mesin penghitung ritase otomatis berdasarkan posisi GPS.
+ * Ritase dihitung satu kali setiap kali alat keluar dari area muat
+ * setelah sebelumnya berada di dalam area tersebut.
+ */
 class GpsRitaseEngine(
     var loadingLat: Double = -2.123456,
     var loadingLng: Double = 115.123456,
@@ -28,7 +33,7 @@ class GpsRitaseEngine(
     var minAccuracyMeters: Float = 15.0f,
     var exitConfirmationCount: Int = 3,
     var enterConfirmationCount: Int = 2,
-    var cooldownMillis: Long = 180_000L // 3 menit
+    var cooldownMillis: Long = 180_000L // 3 menit, mencegah hitungan ganda
 ) {
     var currentState: GpsState = GpsState.UNKNOWN
         private set
@@ -44,8 +49,7 @@ class GpsRitaseEngine(
     }
 
     /**
-     * Evaluasi lokasi baru.
-     * Mengembalikan GpsEvaluationResult.
+     * Evaluasi posisi terbaru dan kembalikan hasilnya.
      */
     fun processLocation(location: Location): GpsEvaluationResult {
         val accuracy = location.accuracy
@@ -56,7 +60,7 @@ class GpsRitaseEngine(
             loadingLng
         )
 
-        // 1. Validasi akurasi GPS (Anti False-Positive)
+        // Abaikan pembacaan yang akurasinya terlalu buruk agar tidak salah hitung
         if (accuracy > minAccuracyMeters) {
             return GpsEvaluationResult(
                 state = currentState,
@@ -64,14 +68,14 @@ class GpsRitaseEngine(
                 distanceToLoadingMeters = distance,
                 isRitaseTriggered = false,
                 accuracy = accuracy,
-                debugReason = "Akurasi GPS buruk (${accuracy}m > ${minAccuracyMeters}m)"
+                statusMessage = "Sinyal GPS sedang lemah, menunggu posisi yang lebih akurat."
             )
         }
 
         val isInsideRadius = distance <= loadingRadiusMeters
         val previousState = currentState
         var isRitaseTriggered = false
-        var reason = ""
+        var message = ""
 
         val now = System.currentTimeMillis()
 
@@ -82,38 +86,36 @@ class GpsRitaseEngine(
                     if (consecutiveEnterReadings >= enterConfirmationCount) {
                         currentState = GpsState.LOADING
                         consecutiveEnterReadings = 0
-                        reason = "Masuk Loading Area (Inisialisasi)"
+                        message = "Posisi terdeteksi di area muat."
                     } else {
-                        reason = "Menunggu konfirmasi masuk loading ($consecutiveEnterReadings/$enterConfirmationCount)"
+                        message = "Menunggu konfirmasi posisi di area muat..."
                     }
                 } else {
                     consecutiveEnterReadings = 0
-                    reason = "Di luar area loading pada start ($distance m). Belum pernah LOADING."
+                    message = "Belum berada di area muat. Simpan titik muat saat alat tiba di lokasi."
                 }
             }
 
             GpsState.LOADING -> {
                 if (isInsideRadius) {
                     consecutiveExitReadings = 0
-                    reason = "Tetap di dalam Loading Area ($distance m <= $loadingRadiusMeters m)"
+                    message = "Berada di area muat (${"%.0f".format(distance)} m dari titik)."
                 } else {
                     consecutiveExitReadings++
-                    // Cek konfirmasi exit berturut-turut & cooldown
                     if (consecutiveExitReadings >= exitConfirmationCount) {
                         val timeSinceLastRitase = now - lastRitaseTimestamp
                         if (timeSinceLastRitase >= cooldownMillis || lastRitaseTimestamp == 0L) {
-                            // VALID EXIT LOADING -> RITASE +1
                             currentState = GpsState.TRAVELLING
                             isRitaseTriggered = true
                             lastRitaseTimestamp = now
                             consecutiveExitReadings = 0
-                            reason = "EXIT_LOADING VALID: Ritase +1! Jarak=$distance m"
+                            message = "Ritase tercatat (+1). Alat bergerak keluar dari area muat."
                         } else {
-                            val waitSec = (cooldownMillis - timeSinceLastRitase) / 1000
-                            reason = "Exit terdeteksi tapi masih dalam cooldown ($waitSec detik tersisa)"
+                            val waitSec = ((cooldownMillis - timeSinceLastRitase) / 1000).coerceAtLeast(0)
+                            message = "Tunggu sekitar $waitSec detik sebelum ritase berikutnya dicatat."
                         }
                     } else {
-                        reason = "Deteksi di luar area ($consecutiveExitReadings/$exitConfirmationCount reading)"
+                        message = "Mulai bergerak keluar dari area muat..."
                     }
                 }
             }
@@ -125,13 +127,13 @@ class GpsRitaseEngine(
                         currentState = GpsState.LOADING
                         consecutiveEnterReadings = 0
                         consecutiveExitReadings = 0
-                        reason = "Kembali ke Loading Area. Siap untuk ritase berikutnya."
+                        message = "Kembali ke area muat. Siap mencatat ritase berikutnya."
                     } else {
-                        reason = "Mendekati loading area ($consecutiveEnterReadings/$enterConfirmationCount reading)"
+                        message = "Mendekat ke area muat..."
                     }
                 } else {
                     consecutiveEnterReadings = 0
-                    reason = "Sedang hauling / travelling di luar loading area ($distance m)"
+                    message = "Sedang dalam perjalanan hauling (${"%.0f".format(distance)} m dari titik muat)."
                 }
             }
         }
@@ -142,7 +144,7 @@ class GpsRitaseEngine(
             distanceToLoadingMeters = distance,
             isRitaseTriggered = isRitaseTriggered,
             accuracy = accuracy,
-            debugReason = reason
+            statusMessage = message
         )
     }
 
@@ -160,7 +162,7 @@ class GpsRitaseEngine(
             lat2: Double,
             lon2: Double
         ): Double {
-            val r = 6371000.0 // Earth radius in meters
+            val r = 6371000.0 // Radius bumi dalam meter
             val dLat = Math.toRadians(lat2 - lat1)
             val dLon = Math.toRadians(lon2 - lon1)
             val a = sin(dLat / 2) * sin(dLat / 2) +

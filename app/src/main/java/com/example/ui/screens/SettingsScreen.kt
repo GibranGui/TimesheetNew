@@ -197,7 +197,7 @@ fun SettingsScreen(
                 }
             }
 
-            // GOOGLE DRIVE & SHEETS ARCHITECTURE INFO
+            // PENYIMPANAN DATA INFO
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -205,13 +205,12 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Cloud, contentDescription = null, tint = MiningAmber)
-                        Text("Penyimpanan Google Sheets Bulanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Penyimpanan Data", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider()
-                    Text("• Folder Drive: DT TIME SHEET", style = MaterialTheme.typography.bodyMedium)
-                    Text("• File Aktif: DT_TimeSheet_2026-10 (Auto switch per bulan)", style = MaterialTheme.typography.bodyMedium)
-                    Text("• Tab: TIME SHEET, RITASE, FUEL, MASTER", style = MaterialTheme.typography.bodyMedium)
-                    Text("• Mode Offline: Data tersimpan aman di SQLite lokal jika tidak ada internet, antrean disinkronkan otomatis saat online.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Semua data shift, ritase, dan bahan bakar disimpan di memori HP ini.", style = MaterialTheme.typography.bodyMedium)
+                    Text("• Aplikasi tetap bisa digunakan tanpa kuota internet.", style = MaterialTheme.typography.bodyMedium)
+                    Text("• Data tidak dikirim ke mana pun dan tidak memerlukan akun apa pun.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -272,7 +271,7 @@ fun SettingsScreen(
                         Text("Keamanan & Privasi Data", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                     }
                     Text(
-                        text = "Aplikasi bersifat personal/private. Tidak menggunakan database pihak ketiga. Akses Google menggunakan Least-Privilege OAuth (hanya file yang dibuat aplikasi ini).",
+                        text = "Aplikasi bersifat personal. Seluruh data hanya tersimpan di memori HP dan tidak menggunakan layanan pihak ketiga. Tidak perlu login dengan akun apa pun.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

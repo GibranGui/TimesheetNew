@@ -11,12 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -32,6 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -40,8 +38,6 @@ import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.EditActiveShiftDialog
 import com.example.ui.screens.EndShiftDialog
 import com.example.ui.screens.FuelInputDialog
-import com.example.ui.screens.GoogleDriveScreen
-import com.example.ui.screens.GoogleLoginScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.RekapanScreen
 import com.example.ui.screens.SettingsScreen
@@ -53,8 +49,7 @@ import com.example.ui.viewmodel.MainViewModel
 enum class AppTab {
     SHIFT,
     REKAPAN,
-    GOOGLE_DRIVE,
-    SETTINGS
+    PENGATURAN
 }
 
 class MainActivity : ComponentActivity() {
@@ -74,20 +69,28 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppContent(viewModel: MainViewModel) {
+    val context = LocalContext.current
+
+    // Pengecekan berkala (tiap 10 detik): apakah izin & layanan GPS aktif,
+    // sehingga peringatan langsung muncul bila lokasi dimatikan saat shift berjalan.
+    LaunchedEffect(Unit) {
+        while (true) {
+            viewModel.refreshGpsConnectivity()
+            delay(10_000L)
+        }
+    }
+
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
     val completedShifts by viewModel.completedShifts.collectAsStateWithLifecycle()
     val recentUnits by viewModel.recentUnits.collectAsStateWithLifecycle()
     val loadingArea by viewModel.loadingArea.collectAsStateWithLifecycle()
-    val pendingSyncCount by viewModel.pendingSyncCount.collectAsStateWithLifecycle()
     val gpsState by viewModel.gpsState.collectAsStateWithLifecycle()
     val ritaseList by viewModel.activeRitaseList.collectAsStateWithLifecycle()
     val fuelList by viewModel.activeFuelList.collectAsStateWithLifecycle()
     val uiError by viewModel.uiError.collectAsStateWithLifecycle()
-    val syncSuccessMessage by viewModel.syncSuccessMessage.collectAsStateWithLifecycle()
+    val successMessage by viewModel.successMessage.collectAsStateWithLifecycle()
     val updateInfo by viewModel.updateInfo.collectAsStateWithLifecycle()
-    val googleAccount by viewModel.googleAccount.collectAsStateWithLifecycle()
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
-    val showLoginGate by viewModel.showLoginGate.collectAsStateWithLifecycle()
 
     var currentTab by remember { mutableStateOf(AppTab.SHIFT) }
     var showHistoryScreen by remember { mutableStateOf(false) }
@@ -104,20 +107,11 @@ fun MainAppContent(viewModel: MainViewModel) {
         }
     }
 
-    LaunchedEffect(syncSuccessMessage) {
-        syncSuccessMessage?.let {
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearSyncMessage()
+            viewModel.clearSuccessMessage()
         }
-    }
-
-    // Jika pertama kali dibuka dan belum ada akun login: Tampilkan UI Google Login terlebih dahulu
-    if (showLoginGate && !googleAccount.isSignedIn) {
-        GoogleLoginScreen(
-            onSignInSuccess = { email -> viewModel.signInGoogle(email) },
-            onContinueOffline = { viewModel.dismissLoginGate() }
-        )
-        return
     }
 
     Scaffold(
@@ -159,35 +153,12 @@ fun MainAppContent(viewModel: MainViewModel) {
                     )
 
                     NavigationBarItem(
-                        selected = currentTab == AppTab.GOOGLE_DRIVE,
-                        onClick = { currentTab = AppTab.GOOGLE_DRIVE },
+                        selected = currentTab == AppTab.PENGATURAN,
+                        onClick = { currentTab = AppTab.PENGATURAN },
                         icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (pendingSyncCount > 0) {
-                                        Badge { Text("$pendingSyncCount") }
-                                    }
-                                }
-                            ) {
-                                Icon(Icons.Default.CloudSync, contentDescription = "Drive")
-                            }
+                            Icon(Icons.Default.Tune, contentDescription = "Pengaturan")
                         },
-                        label = { Text("Drive / Sync", fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MiningAmber,
-                            selectedTextColor = MiningAmber,
-                            indicatorColor = MiningAmber.copy(alpha = 0.15f)
-                        ),
-                        modifier = Modifier.testTag("tab_drive")
-                    )
-
-                    NavigationBarItem(
-                        selected = currentTab == AppTab.SETTINGS,
-                        onClick = { currentTab = AppTab.SETTINGS },
-                        icon = {
-                            Icon(Icons.Default.Tune, contentDescription = "Master")
-                        },
-                        label = { Text("Master", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Pengaturan", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MiningAmber,
                             selectedTextColor = MiningAmber,
@@ -224,13 +195,10 @@ fun MainAppContent(viewModel: MainViewModel) {
                                 ritaseList = ritaseList,
                                 fuelList = fuelList,
                                 gpsState = gpsState,
-                                pendingSyncCount = pendingSyncCount,
                                 onAddFuelClick = { showFuelDialog = true },
                                 onEndShiftClick = { showEndShiftDialog = true },
-                                onSyncClick = { viewModel.syncAllPending() },
                                 onOpenHistoryClick = { showHistoryScreen = true },
-                                onOpenSettingsClick = { currentTab = AppTab.SETTINGS },
-                                onSimulateRitaseClick = { viewModel.simulateManualRitase() },
+                                onOpenSettingsClick = { currentTab = AppTab.PENGATURAN },
                                 onCalibrateLoadingAreaClick = { viewModel.calibrateLoadingAreaFromCurrentLocation() },
                                 onEditShiftClick = { showEditActiveShiftDialog = true },
                                 onDeleteFuelClick = { fuelId -> viewModel.deleteFuelEntry(fuelId) },
@@ -279,7 +247,6 @@ fun MainAppContent(viewModel: MainViewModel) {
                         RekapanScreen(
                             shifts = completedShifts,
                             selectedMonth = selectedMonth,
-                            onSyncClick = { viewModel.syncAllPending() },
                             onEditShift = { shiftId, unit, date, hmAwal, hmAkhir, kmAwal, kmAkhir ->
                                 viewModel.updateCompletedShift(
                                     shiftId, unit, date, hmAwal, hmAkhir, kmAwal, kmAkhir
@@ -288,17 +255,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                         )
                     }
 
-                    AppTab.GOOGLE_DRIVE -> {
-                        GoogleDriveScreen(
-                            accountState = googleAccount,
-                            pendingSyncCount = pendingSyncCount,
-                            onSignInClick = { email -> viewModel.signInGoogle(email) },
-                            onSignOutClick = { viewModel.signOutGoogle() },
-                            onSyncNowClick = { viewModel.syncAllPending() }
-                        )
-                    }
-
-                    AppTab.SETTINGS -> {
+                    AppTab.PENGATURAN -> {
                         SettingsScreen(
                             loadingArea = loadingArea,
                             updateInfo = updateInfo,

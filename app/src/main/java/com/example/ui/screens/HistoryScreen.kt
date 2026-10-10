@@ -87,7 +87,7 @@ fun HistoryScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Semua shift yang selesai akan tercatat di sini dan tersinkron ke Google Sheets bulanan.",
+                    text = "Semua shift yang selesai akan tercatat otomatis di sini.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)

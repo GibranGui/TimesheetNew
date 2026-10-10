@@ -6,7 +6,6 @@ import com.example.data.local.FuelEntryEntity
 import com.example.data.local.LoadingAreaEntity
 import com.example.data.local.RitaseEntity
 import com.example.data.local.ShiftEntity
-import com.example.data.local.SyncQueueEntity
 import com.example.data.local.UnitEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +15,10 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+/**
+ * Penyimpanan data sepenuhnya memakai database lokal (SQLite via Room)
+ * di perangkat. Tidak ada sinkronisasi cloud maupun akun login.
+ */
 class ShiftRepository(context: Context) {
     private val db = AppDatabase.getInstance(context)
     private val shiftDao = db.shiftDao()
@@ -23,13 +26,11 @@ class ShiftRepository(context: Context) {
     private val fuelDao = db.fuelDao()
     private val unitDao = db.unitDao()
     private val loadingAreaDao = db.loadingAreaDao()
-    private val syncQueueDao = db.syncQueueDao()
 
     val activeShiftFlow: Flow<ShiftEntity?> = shiftDao.getActiveShiftFlow()
     val completedShiftsFlow: Flow<List<ShiftEntity>> = shiftDao.getAllCompletedShifts()
     val allUnitsFlow: Flow<List<UnitEntity>> = unitDao.getAllUnitsFlow()
     val loadingAreaFlow: Flow<LoadingAreaEntity?> = loadingAreaDao.getLoadingAreaFlow()
-    val pendingSyncCountFlow: Flow<Int> = syncQueueDao.getPendingCountFlow()
 
     fun getRitaseForShiftFlow(shiftId: String): Flow<List<RitaseEntity>> =
         ritaseDao.getRitaseForShiftFlow(shiftId)
@@ -60,12 +61,20 @@ class ShiftRepository(context: Context) {
         if (date.trim().isEmpty()) {
             return@withContext Result.failure(IllegalArgumentException("Tanggal tidak boleh kosong"))
         }
+        if (!isDateValid(date.trim())) {
+            return@withContext Result.failure(IllegalArgumentException("Format tanggal belum benar. Gunakan format DD/MM/YYYY, contoh: 15/10/2026"))
+        }
+        if (hmAwal < 0.0) {
+            return@withContext Result.failure(IllegalArgumentException("HM Awal tidak boleh negatif"))
+        }
+        if (kmAwal < 0.0) {
+            return@withContext Result.failure(IllegalArgumentException("KM Awal tidak boleh negatif"))
+        }
         val existingActive = shiftDao.getActiveShiftDirect()
         if (existingActive != null) {
-            return@withContext Result.failure(IllegalStateException("Sudah ada shift aktif untuk unit ${existingActive.unitId}"))
+            return@withContext Result.failure(IllegalStateException("Selesaikan shift ${existingActive.unitId} yang sedang berjalan terlebih dahulu."))
         }
 
-        // Simpan unit ke daftar recent master
         unitDao.insertUnit(UnitEntity(cn = trimmedUnit, displayName = trimmedUnit))
 
         val shiftId = UUID.randomUUID().toString()
@@ -78,18 +87,6 @@ class ShiftRepository(context: Context) {
             status = "ACTIVE"
         )
         shiftDao.insertShift(shift)
-
-        // Queue sync
-        val monthPeriod = extractMonthPeriod(date)
-        syncQueueDao.insert(
-            SyncQueueEntity(
-                id = UUID.randomUUID().toString(),
-                entityType = "SHIFT",
-                entityId = shiftId,
-                action = "INSERT",
-                monthPeriod = monthPeriod
-            )
-        )
 
         Result.success(shift)
     }
@@ -120,19 +117,6 @@ class ShiftRepository(context: Context) {
         ritaseDao.insertRitase(ritase)
         shiftDao.incrementRitase(shiftId)
 
-        // Queue sync
-        val activeShift = shiftDao.getActiveShiftDirect()
-        val monthPeriod = activeShift?.let { extractMonthPeriod(it.date) } ?: SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        syncQueueDao.insert(
-            SyncQueueEntity(
-                id = UUID.randomUUID().toString(),
-                entityType = "RITASE",
-                entityId = ritaseId,
-                action = "INSERT",
-                monthPeriod = monthPeriod
-            )
-        )
-
         ritase
     }
 
@@ -143,7 +127,10 @@ class ShiftRepository(context: Context) {
         liter: Double
     ): Result<FuelEntryEntity> = withContext(Dispatchers.IO) {
         if (liter <= 0.0) {
-            return@withContext Result.failure(IllegalArgumentException("Liter Fuel harus lebih besar dari 0"))
+            return@withContext Result.failure(IllegalArgumentException("Jumlah liter harus lebih besar dari 0"))
+        }
+        if (hmIsiFuel < 0.0) {
+            return@withContext Result.failure(IllegalArgumentException("HM saat pengisian tidak boleh negatif"))
         }
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
         val formattedTime = timeFormat.format(Date())
@@ -162,18 +149,6 @@ class ShiftRepository(context: Context) {
         val totalFuel = fuelDao.getTotalFuelForShift(shiftId) ?: liter
         shiftDao.updateTotalFuel(shiftId, totalFuel)
 
-        val activeShift = shiftDao.getActiveShiftDirect()
-        val monthPeriod = activeShift?.let { extractMonthPeriod(it.date) } ?: SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        syncQueueDao.insert(
-            SyncQueueEntity(
-                id = UUID.randomUUID().toString(),
-                entityType = "FUEL",
-                entityId = fuelId,
-                action = "INSERT",
-                monthPeriod = monthPeriod
-            )
-        )
-
         Result.success(fuel)
     }
 
@@ -186,10 +161,10 @@ class ShiftRepository(context: Context) {
             ?: return@withContext Result.failure(IllegalStateException("Tidak ada shift aktif"))
 
         if (hmAkhir < currentShift.hmAwal) {
-            return@withContext Result.failure(IllegalArgumentException("HM Akhir ($hmAkhir) tidak boleh lebih kecil dari HM Awal (${currentShift.hmAwal})"))
+            return@withContext Result.failure(IllegalArgumentException("HM Akhir tidak boleh lebih kecil dari HM Awal (${currentShift.hmAwal})"))
         }
         if (kmAkhir < currentShift.kmAwal) {
-            return@withContext Result.failure(IllegalArgumentException("KM Akhir ($kmAkhir) tidak boleh lebih kecil dari KM Awal (${currentShift.kmAwal})"))
+            return@withContext Result.failure(IllegalArgumentException("KM Akhir tidak boleh lebih kecil dari KM Awal (${currentShift.kmAwal.toInt()}))".replace("${currentShift.kmAwal.toInt()}", currentShift.kmAwal.toInt().toString())))
         }
 
         val totalHm = hmAkhir - currentShift.hmAwal
@@ -209,17 +184,6 @@ class ShiftRepository(context: Context) {
         )
         shiftDao.updateShift(completedShift)
 
-        val monthPeriod = extractMonthPeriod(completedShift.date)
-        syncQueueDao.insert(
-            SyncQueueEntity(
-                id = UUID.randomUUID().toString(),
-                entityType = "SHIFT",
-                entityId = shiftId,
-                action = "UPDATE",
-                monthPeriod = monthPeriod
-            )
-        )
-
         Result.success(completedShift)
     }
 
@@ -235,6 +199,7 @@ class ShiftRepository(context: Context) {
         val trimmedUnit = unitId.trim()
         if (trimmedUnit.isEmpty()) return@withContext Result.failure(IllegalArgumentException("C/N Unit tidak boleh kosong"))
         if (date.trim().isEmpty()) return@withContext Result.failure(IllegalArgumentException("Tanggal tidak boleh kosong"))
+        if (!isDateValid(date.trim())) return@withContext Result.failure(IllegalArgumentException("Format tanggal belum benar. Gunakan format DD/MM/YYYY."))
 
         unitDao.insertUnit(UnitEntity(cn = trimmedUnit, displayName = trimmedUnit))
         val updated = currentShift.copy(
@@ -246,16 +211,6 @@ class ShiftRepository(context: Context) {
         )
         shiftDao.updateShift(updated)
 
-        val monthPeriod = extractMonthPeriod(updated.date)
-        syncQueueDao.insert(
-            SyncQueueEntity(
-                id = UUID.randomUUID().toString(),
-                entityType = "SHIFT",
-                entityId = updated.id,
-                action = "UPDATE",
-                monthPeriod = monthPeriod
-            )
-        )
         Result.success(updated)
     }
 
@@ -280,11 +235,17 @@ class ShiftRepository(context: Context) {
         kmAwal: Double,
         kmAkhir: Double
     ): Result<ShiftEntity> = withContext(Dispatchers.IO) {
+        if (unitId.trim().isEmpty()) {
+            return@withContext Result.failure(IllegalArgumentException("C/N Unit tidak boleh kosong"))
+        }
+        if (!isDateValid(date.trim())) {
+            return@withContext Result.failure(IllegalArgumentException("Format tanggal belum benar. Gunakan format DD/MM/YYYY."))
+        }
         if (hmAkhir < hmAwal) {
-            return@withContext Result.failure(IllegalArgumentException("HM Akhir ($hmAkhir) tidak boleh lebih kecil dari HM Awal ($hmAwal)"))
+            return@withContext Result.failure(IllegalArgumentException("HM Akhir tidak boleh lebih kecil dari HM Awal"))
         }
         if (kmAkhir < kmAwal) {
-            return@withContext Result.failure(IllegalArgumentException("KM Akhir ($kmAkhir) tidak boleh lebih kecil dari KM Awal ($kmAwal)"))
+            return@withContext Result.failure(IllegalArgumentException("KM Akhir tidak boleh lebih kecil dari KM Awal"))
         }
 
         val totalHm = hmAkhir - hmAwal
@@ -309,16 +270,6 @@ class ShiftRepository(context: Context) {
         )
         shiftDao.updateShift(updated)
 
-        val monthPeriod = extractMonthPeriod(updated.date)
-        syncQueueDao.insert(
-            SyncQueueEntity(
-                id = UUID.randomUUID().toString(),
-                entityType = "SHIFT",
-                entityId = shiftId,
-                action = "UPDATE",
-                monthPeriod = monthPeriod
-            )
-        )
         Result.success(updated)
     }
 
@@ -326,41 +277,29 @@ class ShiftRepository(context: Context) {
         lat: Double,
         lng: Double,
         radiusMeters: Double,
-        name: String = "Pit Loading Area"
+        name: String = "Area Muat"
     ) = withContext(Dispatchers.IO) {
         val area = LoadingAreaEntity(
             id = "default_loading_area",
             name = name,
             latitude = lat,
             longitude = lng,
-            radiusMeters = radiusMeters,
+            radiusMeters = radiusMeters.coerceIn(10.0, 5000.0),
             enabled = true
         )
         loadingAreaDao.insertOrUpdate(area)
     }
 
-    suspend fun syncAllQueue(): Int = withContext(Dispatchers.IO) {
-        val pendingList = syncQueueDao.getPendingItems()
-        val count = pendingList.size
-        if (count > 0) {
-            syncQueueDao.markAllSynced()
-        }
-        count
-    }
-
-    private fun extractMonthPeriod(dateStr: String): String {
+    private fun isDateValid(dateStr: String): Boolean {
         return try {
-            val parts = dateStr.split("/", "-")
-            if (parts.size >= 3) {
-                // assume DD/MM/YYYY
-                val year = parts[2]
-                val month = parts[1].padStart(2, '0')
-                "$year-$month"
-            } else {
-                SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+            val format = SimpleDateFormat("dd/MM/yyyy", Locale.US).apply {
+                isLenient = false
             }
+            val parsed = format.parse(dateStr) ?: return false
+            // Pastikan hasil parsing konsisten dengan teks aslinya
+            format.format(parsed) == dateStr
         } catch (_: Exception) {
-            SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+            false
         }
     }
 }

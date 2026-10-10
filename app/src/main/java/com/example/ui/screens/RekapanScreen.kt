@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocalShipping
@@ -65,7 +65,6 @@ import com.example.ui.theme.MiningGreenActive
 fun RekapanScreen(
     shifts: List<ShiftEntity>,
     selectedMonth: String,
-    onSyncClick: () -> Unit,
     onEditShift: (shiftId: String, unitId: String, date: String, hmAwal: Double, hmAkhir: Double, kmAwal: Double, kmAkhir: Double) -> Unit
 ) {
     var selectedShift by remember { mutableStateOf<ShiftEntity?>(null) }
@@ -88,16 +87,12 @@ fun RekapanScreen(
                     }
                 },
                 actions = {
-                    Button(
-                        onClick = onSyncClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.padding(end = 8.dp).testTag("btn_sync_rekapan")
-                    ) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Sync Sheets", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
+                    Icon(
+                        imageVector = Icons.Default.CloudDone,
+                        contentDescription = "Data tersimpan di HP",
+                        tint = MiningGreenActive,
+                        modifier = Modifier.padding(end = 16.dp)
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -238,7 +233,7 @@ fun RekapanScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Data shift yang telah selesai akan otomatis tampil di sini dan tercatat ke baris Google Sheets bulanan.",
+                                text = "Data shift yang telah selesai akan otomatis tampil di sini.",
                                 style = MaterialTheme.typography.bodySmall,
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,

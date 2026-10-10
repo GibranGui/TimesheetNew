@@ -11,8 +11,7 @@ import androidx.room.RoomDatabase
         RitaseEntity::class,
         FuelEntryEntity::class,
         UnitEntity::class,
-        LoadingAreaEntity::class,
-        SyncQueueEntity::class
+        LoadingAreaEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -23,7 +22,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fuelDao(): FuelDao
     abstract fun unitDao(): UnitDao
     abstract fun loadingAreaDao(): LoadingAreaDao
-    abstract fun syncQueueDao(): SyncQueueDao
 
     companion object {
         @Volatile

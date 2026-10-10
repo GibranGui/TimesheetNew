@@ -17,20 +17,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.GpsNotFixed
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -39,7 +32,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,7 +46,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,7 +55,6 @@ import com.example.data.local.RitaseEntity
 import com.example.data.local.ShiftEntity
 import com.example.domain.GpsState
 import com.example.service.GpsTrackingState
-import com.example.ui.theme.MiningAccentBlue
 import com.example.ui.theme.MiningAmber
 import com.example.ui.theme.MiningGreenActive
 import com.example.ui.theme.MiningRedAlert
@@ -76,19 +66,16 @@ fun DashboardScreen(
     ritaseList: List<RitaseEntity>,
     fuelList: List<FuelEntryEntity>,
     gpsState: GpsTrackingState,
-    pendingSyncCount: Int,
     onAddFuelClick: () -> Unit,
     onEndShiftClick: () -> Unit,
-    onSyncClick: () -> Unit,
     onOpenHistoryClick: () -> Unit,
     onOpenSettingsClick: () -> Unit,
-    onSimulateRitaseClick: () -> Unit,
     onCalibrateLoadingAreaClick: () -> Unit,
     onEditShiftClick: () -> Unit,
     onDeleteFuelClick: (fuelId: String) -> Unit,
     onDeleteLastRitaseClick: () -> Unit
 ) {
-    // Kelompokkan ritase per jam (format: e.g. "07:25, 35, 45 | 3")
+    // Kelompokkan ritase per jam untuk tampilan rincian
     val hourlyBreakdown = remember(ritaseList) {
         groupRitaseByHour(ritaseList)
     }
@@ -114,7 +101,7 @@ fun DashboardScreen(
                 },
                 actions = {
                     IconButton(onClick = onEditShiftClick, modifier = Modifier.testTag("btn_edit_active_shift")) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Data Shift", tint = MiningAmber)
+                        Icon(Icons.Default.Edit, contentDescription = "Ubah Data Shift", tint = MiningAmber)
                     }
                     IconButton(onClick = onOpenHistoryClick, modifier = Modifier.testTag("btn_menu_history")) {
                         Icon(Icons.Default.History, contentDescription = "Riwayat")
@@ -138,85 +125,58 @@ fun DashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // STATUS BAR (GPS Status + Sync Status)
-            Row(
+            // KARTU STATUS GPS
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                // GPS Card
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(
-                                        if (gpsState.isGpsDisturbed) MiningRedAlert else MiningGreenActive,
-                                        shape = CircleShape
-                                    )
-                            )
-                            Text(
-                                text = if (gpsState.isGpsDisturbed) "⚠️ GPS TERGANGGU" else "🟢 GPS AKTIF",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(
+                                    if (gpsState.isGpsDisturbed || !gpsState.isRunning) MiningRedAlert else MiningGreenActive,
+                                    shape = CircleShape
+                                )
+                        )
                         Text(
-                            text = when (gpsState.state) {
-                                GpsState.LOADING -> "STATUS: LOADING"
-                                GpsState.TRAVELLING -> "STATUS: TRAVELLING"
-                                GpsState.UNKNOWN -> "STATUS: MENUNGGU GPS"
+                            text = when {
+                                !gpsState.isRunning -> "PELACAKAN BELUM AKTIF"
+                                gpsState.isGpsDisturbed -> "SINYAL GPS LEMAH"
+                                else -> "PELACAKAN GPS AKTIF"
                             },
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MiningAmber
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (gpsState.isGpsDisturbed || !gpsState.isRunning) MiningRedAlert else MiningGreenActive
                         )
-                        if (gpsState.isRunning) {
-                            Text(
-                                text = "Jarak: ${gpsState.distanceMeters.toInt()}m | Akurasi: ${gpsState.accuracy.toInt()}m",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.GpsNotFixed,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                }
-
-                // Sync Card
-                Surface(
-                    onClick = onSyncClick,
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_sync_status")
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(
-                                imageVector = if (pendingSyncCount == 0) Icons.Default.CloudDone else Icons.Default.CloudOff,
-                                contentDescription = null,
-                                tint = if (pendingSyncCount == 0) MiningGreenActive else MiningAmber,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "SYNC STATUS",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = when (gpsState.state) {
+                            GpsState.LOADING -> "Sedang di area muat"
+                            GpsState.TRAVELLING -> "Sedang dalam perjalanan"
+                            GpsState.UNKNOWN -> "Menunggu sinyal GPS"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MiningAmber
+                    )
+                    Text(
+                        text = gpsState.statusMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (gpsState.isRunning) {
                         Text(
-                            text = if (pendingSyncCount == 0) "☁️ Tersinkron" else "📴 $pendingSyncCount Menunggu",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (pendingSyncCount == 0) MiningGreenActive else MiningAmber
-                        )
-                        Text(
-                            text = "Ketuk untuk sync",
+                            text = "Jarak ke titik muat: ${gpsState.distanceMeters.toInt()} m | Akurasi: ${gpsState.accuracy.toInt()} m",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -224,7 +184,7 @@ fun DashboardScreen(
                 }
             }
 
-            // 📍 1x KLIK: SET TITIK LOADING DARI LOKASI GPS SAAT INI (TANPA INPUT MANUAL!)
+            // TITIK LOADING
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -232,15 +192,15 @@ fun DashboardScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.MyLocation, contentDescription = null, tint = MiningAmber)
+                        Icon(Icons.Default.Place, contentDescription = null, tint = MiningAmber)
                         Text(
-                            text = "Titik Loading Pit (Radius 50m)",
+                            text = "Titik Area Muat",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleSmall
                         )
                     }
                     Text(
-                        text = "Tekan tombol di bawah 1x saat DT tiba di area muat / excavator untuk mengunci titik GPS loading otomatis tanpa mengetik koordinat manual.",
+                        text = "Tekan tombol di bawah satu kali saat alat tiba di area muat. Posisi GPS saat ini akan disimpan sebagai titik acuan hitung ritase otomatis.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -256,7 +216,7 @@ fun DashboardScreen(
                         Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "📍 SET TITIK LOADING DI SINI (1x KLIK)",
+                            text = "SIMPAN POSISI INI SEBAGAI TITIK MUAT",
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
@@ -264,7 +224,7 @@ fun DashboardScreen(
                 }
             }
 
-            // BIG METRIC CARD: RITASE HARI INI
+            // KARTU RITASE HARI INI
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
@@ -291,21 +251,21 @@ fun DashboardScreen(
                         color = MiningAmber
                     )
                     Text(
-                        text = "Otomatis dihitung via GPS saat keluar loading area",
+                        text = "Dihitung otomatis oleh GPS saat alat keluar dari area muat",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // BREAKDOWN RITASE PER JAM
+            // RINCIAN RITASE PER JAM
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "RITASE PER JAM",
+                        text = "Rincian Ritase per Jam",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -346,7 +306,7 @@ fun DashboardScreen(
                             }
                         }
 
-                        // Tombol Koreksi jika ada ritase keliru / false positive
+                        // Tombol koreksi jika ada ritase yang keliru tercatat
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(
                                 onClick = onDeleteLastRitaseClick,
@@ -354,14 +314,14 @@ fun DashboardScreen(
                             ) {
                                 Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Koreksi / Hapus 1 Ritase Terakhir", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                Text("Hapus 1 Ritase Terakhir", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
                 }
             }
 
-            // FUEL SECTION & SUMMARY
+            // BAHAN BAKAR & RINGKASAN
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -373,12 +333,12 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "FUEL ENTRY",
+                            text = "Pengisian Bahan Bakar",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "TOTAL: ${totalFuel.toInt()} L",
+                            text = "Total: ${totalFuel.toInt()} L",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MiningAmber
@@ -388,7 +348,7 @@ fun DashboardScreen(
 
                     if (fuelList.isEmpty()) {
                         Text(
-                            text = "Belum ada pengisian fuel pada shift ini.",
+                            text = "Belum ada pengisian bahan bakar pada shift ini.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 8.dp)
@@ -421,7 +381,7 @@ fun DashboardScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.DeleteOutline,
-                                            contentDescription = "Hapus Data Fuel",
+                                            contentDescription = "Hapus Data Bahan Bakar",
                                             tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -433,7 +393,7 @@ fun DashboardScreen(
                 }
             }
 
-            // INFO AWAL HM & KM
+            // INFO HM & KM AWAL
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -443,7 +403,7 @@ fun DashboardScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("HM AWAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("HM Awal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${shift.hmAwal}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -452,7 +412,7 @@ fun DashboardScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("KM AWAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("KM Awal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${shift.kmAwal.toInt()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -460,12 +420,11 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // TOMBOL AKSI UTAMA (BESAR & JELAS)
+            // TOMBOL AKSI UTAMA
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // TAMBAH FUEL BUTTON
                 Button(
                     onClick = onAddFuelClick,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -478,13 +437,12 @@ fun DashboardScreen(
                     Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = MiningAmber)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "TAMBAH FUEL",
+                        text = "ISI BBM",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
-                // SELESAI SHIFT BUTTON
                 Button(
                     onClick = onEndShiftClick,
                     colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
@@ -497,23 +455,11 @@ fun DashboardScreen(
                     Icon(Icons.Default.Stop, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "SELESAI SHIFT",
+                        text = "AKHIRI SHIFT",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
-            }
-
-            // SIMULASI RITASE (Untuk pengujian indoor / lab test tanpa harus membawa DT di lapangan)
-            FilledTonalButton(
-                onClick = onSimulateRitaseClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("btn_simulasi_ritase")
-            ) {
-                Icon(Icons.Default.GpsFixed, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Simulasi GPS Exit (+1 Ritase Uji Coba)")
             }
         }
     }
@@ -528,7 +474,7 @@ data class HourlyRitaseItem(
 private fun groupRitaseByHour(ritaseList: List<RitaseEntity>): List<HourlyRitaseItem> {
     if (ritaseList.isEmpty()) return emptyList()
 
-    // Kelompokkan berdasarkan 2 digit pertama jam (misal "07")
+    // Kelompokkan berdasarkan jam pada waktu pencatatan (2 digit pertama)
     val grouped = ritaseList.groupBy { ritase ->
         if (ritase.timeFormatted.contains(":")) {
             ritase.timeFormatted.split(":")[0]

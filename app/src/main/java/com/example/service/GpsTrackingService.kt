@@ -9,6 +9,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.location.Location
+import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
@@ -32,6 +33,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class GpsTrackingState(
     val isRunning: Boolean = false,
@@ -40,7 +42,7 @@ data class GpsTrackingState(
     val distanceMeters: Double = 0.0,
     val accuracy: Float = 0f,
     val ritaseCount: Int = 0,
-    val statusMessage: String = "GPS Standby",
+    val statusMessage: String = "Pelacakan belum aktif",
     val isGpsDisturbed: Boolean = false,
     val lastLatitude: Double? = null,
     val lastLongitude: Double? = null
@@ -48,7 +50,7 @@ data class GpsTrackingState(
 
 class GpsTrackingService : Service() {
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var repository: ShiftRepository
     private var wakeLock: PowerManager.WakeLock? = null
@@ -60,8 +62,8 @@ class GpsTrackingService : Service() {
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
-            val location = result.lastLocation ?: return
-            handleLocationUpdate(location)
+            // Proses semua lokasi terbaru agar perpindahan cepat tetap terdeteksi
+            result.locations.lastOrNull()?.let { handleLocationUpdate(it) }
         }
     }
 
@@ -71,36 +73,92 @@ class GpsTrackingService : Service() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         createNotificationChannel()
-        acquireWakeLock()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Wake lock hanya dikantongi saat pelacakan benar-benar berjalan
+        if (wakeLock?.isHeld != true) acquireWakeLock()
+
+        when (intent?.action) {
+            ACTION_RELOAD_AREA -> {
+                reloadLoadingArea()
+                return START_STICKY
+            }
+
+            ACTION_UPDATE_UNIT -> {
+                val unitId = intent.getStringExtra(EXTRA_UNIT_ID).orEmpty()
+                if (unitId.isNotEmpty()) {
+                    currentUnitId = unitId
+                    _trackingState.value = _trackingState.value.copy(unitId = unitId)
+                    updateNotificationText()
+                }
+                return START_STICKY
+            }
+
+            ACTION_CORRECT_RITASE -> {
+                currentRitaseCount = (currentRitaseCount - 1).coerceAtLeast(0)
+                _trackingState.value = _trackingState.value.copy(ritaseCount = currentRitaseCount)
+                updateNotificationText()
+                return START_STICKY
+            }
+        }
+
         val shiftId = intent?.getStringExtra(EXTRA_SHIFT_ID) ?: ""
-        val unitId = intent?.getStringExtra(EXTRA_UNIT_ID) ?: ""
-        val ritase = intent?.getIntExtra(EXTRA_RITASE_COUNT, 0) ?: 0
 
         if (shiftId.isNotEmpty()) {
+            val isNewShift = shiftId != currentShiftId
             currentShiftId = shiftId
-            currentUnitId = unitId
-            currentRitaseCount = ritase
+            currentUnitId = intent.getStringExtra(EXTRA_UNIT_ID).orEmpty()
+            currentRitaseCount = intent.getIntExtra(EXTRA_RITASE_COUNT, 0)
 
-            startForeground(NOTIFICATION_ID, buildNotification("GPS Aktif - $currentUnitId", currentRitaseCount, GpsState.UNKNOWN))
+            if (isNewShift) {
+                engine.reset()
+            }
+
+            startForeground(NOTIFICATION_ID, buildNotification("Memeriksa sinyal GPS...", currentRitaseCount, GpsState.UNKNOWN))
 
             serviceScope.launch(Dispatchers.IO) {
-                val loadingArea = repository.getActiveLoadingAreaDirect()
-                engine.setCenter(loadingArea.latitude, loadingArea.longitude, loadingArea.radiusMeters)
+                try {
+                    val loadingArea = repository.getActiveLoadingAreaDirect()
+                    withContext(Dispatchers.Main) {
+                        engine.setCenter(loadingArea.latitude, loadingArea.longitude, loadingArea.radiusMeters)
+                    }
+                } catch (_: Exception) {
+                    // Area muat default tetap dipakai bila gagal membaca
+                }
+            }
+
+            if (!isDeviceLocationEnabled()) {
+                _trackingState.value = GpsTrackingState(
+                    isRunning = true,
+                    unitId = currentUnitId,
+                    ritaseCount = currentRitaseCount,
+                    isGpsDisturbed = true,
+                    statusMessage = "Lokasi (GPS) pada HP belum aktif. Aktifkan layanan lokasi agar ritase dapat dihitung otomatis."
+                )
+            } else {
+                _trackingState.value = GpsTrackingState(
+                    isRunning = true,
+                    unitId = currentUnitId,
+                    ritaseCount = currentRitaseCount,
+                    statusMessage = "Mencari sinyal GPS..."
+                )
             }
 
             startLocationUpdates()
-            _trackingState.value = GpsTrackingState(
-                isRunning = true,
-                unitId = currentUnitId,
-                ritaseCount = currentRitaseCount,
-                statusMessage = "Mencari sinyal GPS..."
-            )
         }
 
         return START_STICKY
+    }
+
+    private fun isDeviceLocationEnabled(): Boolean {
+        return try {
+            val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -119,7 +177,7 @@ class GpsTrackingService : Service() {
         } catch (_: SecurityException) {
             _trackingState.value = _trackingState.value.copy(
                 isGpsDisturbed = true,
-                statusMessage = "Izin lokasi tidak tersedia"
+                statusMessage = "Izin lokasi belum diberikan. Buka pengaturan aplikasi dan izinkan akses lokasi."
             )
         }
     }
@@ -132,14 +190,18 @@ class GpsTrackingService : Service() {
         if (eval.isRitaseTriggered && currentShiftId.isNotEmpty()) {
             currentRitaseCount++
             serviceScope.launch(Dispatchers.IO) {
-                repository.recordRitase(
-                    shiftId = currentShiftId,
-                    unitId = currentUnitId,
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    accuracy = location.accuracy,
-                    trigger = "EXIT_LOADING"
-                )
+                try {
+                    repository.recordRitase(
+                        shiftId = currentShiftId,
+                        unitId = currentUnitId,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        accuracy = location.accuracy,
+                        trigger = "EXIT_LOADING"
+                    )
+                } catch (_: Exception) {
+                    // Pencatatan akan dicoba kembali pada perpindahan berikutnya
+                }
             }
         }
 
@@ -150,7 +212,7 @@ class GpsTrackingService : Service() {
             distanceMeters = eval.distanceToLoadingMeters,
             accuracy = eval.accuracy,
             ritaseCount = currentRitaseCount,
-            statusMessage = eval.debugReason,
+            statusMessage = eval.statusMessage,
             isGpsDisturbed = isDisturbed,
             lastLatitude = location.latitude,
             lastLongitude = location.longitude
@@ -159,11 +221,36 @@ class GpsTrackingService : Service() {
         updateNotification(eval)
     }
 
+    private fun reloadLoadingArea() {
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val loadingArea = repository.getActiveLoadingAreaDirect()
+                withContext(Dispatchers.Main) {
+                    engine.setCenter(loadingArea.latitude, loadingArea.longitude, loadingArea.radiusMeters)
+                }
+            } catch (_: Exception) {
+                // Pertahankan konfigurasi yang sedang berjalan
+            }
+        }
+    }
+
+    private fun updateNotificationText() {
+        val stateName = when (_trackingState.value.state) {
+            GpsState.LOADING -> "Di area muat"
+            GpsState.TRAVELLING -> "Perjalanan"
+            GpsState.UNKNOWN -> "Menunggu posisi"
+        }
+        val text = "Unit: $currentUnitId | Ritase: $currentRitaseCount | $stateName"
+        val notification = buildNotification(text, currentRitaseCount, _trackingState.value.state)
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, notification)
+    }
+
     private fun updateNotification(eval: GpsEvaluationResult) {
         val stateName = when (eval.state) {
-            GpsState.LOADING -> "LOADING"
-            GpsState.TRAVELLING -> "TRAVELLING"
-            GpsState.UNKNOWN -> "MENUNGGU POSISI"
+            GpsState.LOADING -> "Di area muat"
+            GpsState.TRAVELLING -> "Perjalanan"
+            GpsState.UNKNOWN -> "Menunggu posisi"
         }
         val text = "Unit: $currentUnitId | Ritase: $currentRitaseCount | $stateName"
         val notification = buildNotification(text, currentRitaseCount, eval.state)
@@ -183,7 +270,7 @@ class GpsTrackingService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("🚚 DT Time Sheet - GPS Ritase Aktif")
+            .setContentTitle("DT Time Sheet - Pelacakan Ritase Aktif")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)
@@ -196,10 +283,10 @@ class GpsTrackingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "DT Time Sheet GPS Service",
+                "Layanan Lokasi DT Time Sheet",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Pelacakan otomatis ritase dump truck saat shift aktif"
+                description = "Menampilkan status pelacakan ritase saat shift berlangsung"
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
@@ -223,7 +310,7 @@ class GpsTrackingService : Service() {
             }
         } catch (_: Exception) {}
         serviceScope.cancel()
-        _trackingState.value = GpsTrackingState(isRunning = false, statusMessage = "GPS Nonaktif")
+        _trackingState.value = GpsTrackingState(isRunning = false, statusMessage = "Pelacakan berhenti")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -236,6 +323,10 @@ class GpsTrackingService : Service() {
         const val EXTRA_UNIT_ID = "extra_unit_id"
         const val EXTRA_RITASE_COUNT = "extra_ritase_count"
 
+        const val ACTION_RELOAD_AREA = "com.example.action.RELOAD_LOADING_AREA"
+        const val ACTION_UPDATE_UNIT = "com.example.action.UPDATE_UNIT"
+        const val ACTION_CORRECT_RITASE = "com.example.action.CORRECT_RITASE"
+
         private val _trackingState = MutableStateFlow(GpsTrackingState())
         val trackingState = _trackingState.asStateFlow()
 
@@ -245,6 +336,77 @@ class GpsTrackingService : Service() {
                 putExtra(EXTRA_UNIT_ID, unitId)
                 putExtra(EXTRA_RITASE_COUNT, ritaseCount)
             }
+            startServiceCompat(context, intent)
+        }
+
+        fun reloadLoadingArea(context: Context) {
+            val intent = Intent(context, GpsTrackingService::class.java).apply {
+                action = ACTION_RELOAD_AREA
+            }
+            if (_trackingState.value.isRunning) {
+                context.startService(intent)
+            }
+        }
+
+        fun updateUnitInfo(context: Context, unitId: String) {
+            val intent = Intent(context, GpsTrackingService::class.java).apply {
+                action = ACTION_UPDATE_UNIT
+                putExtra(EXTRA_UNIT_ID, unitId)
+            }
+            if (_trackingState.value.isRunning) {
+                context.startService(intent)
+            }
+        }
+
+        fun correctRitaseCount(context: Context) {
+            val intent = Intent(context, GpsTrackingService::class.java).apply {
+                action = ACTION_CORRECT_RITASE
+            }
+            if (_trackingState.value.isRunning) {
+                context.startService(intent)
+            }
+        }
+
+        /**
+         * Tampilkan peringatan bila koneksi/izin GPS bermasalah (dipakai pengecekan berkala).
+         */
+        fun setGpsWarning(context: Context, message: String) {
+            val current = _trackingState.value
+            if (!current.isRunning) return
+            if (current.isGpsDisturbed && current.statusMessage == message) return
+            _trackingState.value = current.copy(
+                isGpsDisturbed = true,
+                statusMessage = message
+            )
+            try {
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                if (manager.getNotificationChannel(CHANNEL_ID) != null) {
+                    val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                        .setContentTitle("DT Time Sheet - Masalah Lokasi")
+                        .setContentText(message)
+                        .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                        .setOngoing(true)
+                        .setPriority(NotificationCompat.PRIORITY_LOW)
+                        .build()
+                    manager.notify(NOTIFICATION_ID, notification)
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        /**
+         * Pulihkan status normal setelah GPS kembali terhubung.
+         */
+        fun clearGpsWarning(context: Context) {
+            val current = _trackingState.value
+            if (!current.isRunning) return
+            _trackingState.value = current.copy(
+                isGpsDisturbed = false,
+                statusMessage = "GPS kembali terhubung. Pelacakan berjalan normal."
+            )
+        }
+
+        private fun startServiceCompat(context: Context, intent: Intent) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {

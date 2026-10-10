@@ -24,6 +24,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # Cadangkan cache SDK bawaan runner (versi baru kadang belum bisa memasang
+      # paket lama 'tools' -> gagal). Biarkan Gradle yang memasang SDK & license.
+      - name: Disable Actions Android SDK cache
+        run: rm -rf "$ANDROID_HOME"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 

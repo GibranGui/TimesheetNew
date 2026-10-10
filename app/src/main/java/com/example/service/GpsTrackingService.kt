@@ -108,8 +108,8 @@ class GpsTrackingService : Service() {
         if (shiftId.isNotEmpty()) {
             val isNewShift = shiftId != currentShiftId
             currentShiftId = shiftId
-            currentUnitId = intent.getStringExtra(EXTRA_UNIT_ID).orEmpty()
-            currentRitaseCount = intent.getIntExtra(EXTRA_RITASE_COUNT, 0)
+            currentUnitId = intent?.getStringExtra(EXTRA_UNIT_ID).orEmpty()
+            currentRitaseCount = intent?.getIntExtra(EXTRA_RITASE_COUNT, 0) ?: 0
 
             if (isNewShift) {
                 engine.reset()

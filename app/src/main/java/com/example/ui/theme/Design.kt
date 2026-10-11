@@ -41,8 +41,8 @@ val SpaceScreen = 16.dp
 @Composable
 fun GradientHero(
     modifier: Modifier = Modifier,
-    from: Color = MiningIndigo,
-    to: Color = MiningViolet,
+    from: Color = IndigoHero,
+    to: Color = VioletHero,
     content: @Composable () -> Unit,
 ) {
     Box(

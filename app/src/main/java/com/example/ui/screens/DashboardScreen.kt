@@ -346,9 +346,8 @@ fun DashboardScreen(
             // TITIK LOADING
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = ShapeCard,
+                shape = ShapeInner,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = ShapeInner
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

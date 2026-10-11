@@ -1,8 +1,8 @@
 package com.example.ui.screens
 
-import com.example.ui.theme.ShapeInner
-
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,13 +13,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WarningAmber
@@ -28,9 +31,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,24 +51,48 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.RosterEntity
+import com.example.ui.theme.CodeDay
+import com.example.ui.theme.CodeDayBg
+import com.example.ui.theme.CodeLeave
+import com.example.ui.theme.CodeLeaveBg
+import com.example.ui.theme.CodeNight
+import com.example.ui.theme.CodeNightBg
+import com.example.ui.theme.CodeOff
+import com.example.ui.theme.CodeOffBg
+import com.example.ui.theme.CodeOther
+import com.example.ui.theme.CodeOtherBg
+import com.example.ui.theme.EmployeeAccent
+import com.example.ui.theme.EmployeeOkGreen
+import com.example.ui.theme.EmployeePrimary
+import com.example.ui.theme.ShapeCard
+import com.example.ui.theme.ShapeInner
+import com.example.ui.theme.contrastTextOn
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-/** Kode shift yang dikenal jadwal. Huruf pertama dipakai sebagai warna penanda. */
+/** Warna penanda kode jadwal — gaya aplikasi roaster armada. */
 internal fun shiftColor(code: String): Color = when (code) {
-    "D" -> Color(0xFF2E7D32)      // Siang (green)
-    "N" -> Color(0xFF6A1B9A)      // Malam (purple)
-    "OFF" -> Color(0xFF455A64)    // Libur (gray-blue)
-    "CR" -> Color(0xFFEF6C00)     // Cuti roster (orange)
-    "CT" -> Color(0xFFAD1457)     // Cuti tahunan (pink)
-    "CTD" -> Color(0xFFAD1457)    // Cuti tahunan siang (pink)
-    "CTN" -> Color(0xFF00838F)    // Cuti tahunan malam (teal)
-    "I" -> Color(0xFFC62828)      // Induksi setelah cuti (red)
-    else -> Color(0xFF9E9E9E)
+    "D" -> CodeDay
+    "N" -> CodeNight
+    "OFF" -> CodeOff
+    "CR", "CT", "CTD", "I" -> CodeLeave
+    "CTN" -> CodeNight
+    "" -> CodeOther
+    else -> CodeOther
 }
 
-/** Label ramah pengguna untuk kode shift pada jadwal. */
+/** Latar lembut untuk chip kode. */
+internal fun shiftSoftBg(code: String): Color = when (code) {
+    "D" -> CodeDayBg
+    "N" -> CodeNightBg
+    "OFF" -> CodeOffBg
+    "CR", "CT", "CTD", "I" -> CodeLeaveBg
+    "CTN" -> CodeNightBg
+    else -> CodeOtherBg
+}
+
+/** Label ramah pengguna untuk kode jadwal. */
 internal fun shiftLabel(code: String): String = when (code) {
     "D" -> "Siang"
     "N" -> "Malam"
@@ -97,10 +124,7 @@ private fun buildUnitPairs(rosters: List<RosterEntity>, daysInMonth: Int): List<
     }.sortedBy { it.vehicleId }
 }
 
-/** Deteksi unit kosong untuk tab [shift] ("D" siang atau "N" malam).
- *  Aturan armada: 2 driver 1 unit beda shift. Jika driver D berhalangan
- *  (CR/CT/I/OFF) sementara pasangannya N masuk, maka unit tanpa driver SIANG
- *  — dan sebaliknya. Spare bisa mengambil alih, jadi peringatan diletakkan paling atas. */
+/** Deteksi unit kosong untuk tab [shift] ("D" siang atau "N" malam). */
 private fun emptyUnitsForShift(pairs: List<UnitPair>, shift: String, todayDay: Int): List<Pair<String, String>> {
     val result = mutableListOf<Pair<String, String>>()
     for (pair in pairs) {
@@ -119,15 +143,17 @@ private fun emptyUnitsForShift(pairs: List<UnitPair>, shift: String, todayDay: I
     return result.sortedBy { it.first }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RosterScreen(
     rosters: List<RosterEntity>,
+    mySchedule: List<DaySchedule>,
+    driverName: String,
+    vehicleId: String,
     isSyncing: Boolean,
     lastSyncTime: Long,
-    driverName: String,
-    onRefreshClick: () -> Unit
+    onRefreshClick: () -> Unit,
+    onStartShiftClick: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var unitFilter by remember { mutableStateOf<String?>(null) }
@@ -136,18 +162,22 @@ fun RosterScreen(
     val calendar = remember { Calendar.getInstance() }
     val daysInMonth = remember { calendar.getActualMaximum(Calendar.DAY_OF_MONTH) }
     val todayDay = remember { calendar.get(Calendar.DAY_OF_MONTH) }
+    val idLocale = remember { Locale("id", "ID") }
     val monthLabel = remember {
-        SimpleDateFormat("MMMM yyyy", Locale("id", "ID")).format(calendar.time)
-            .replaceFirstChar { it.titlecase(Locale("id", "ID")) }
+        SimpleDateFormat("MMMM yyyy", idLocale).format(calendar.time)
+            .replaceFirstChar { it.titlecase(idLocale) }
+    }
+    val todayLabel = remember {
+        SimpleDateFormat("EEEE, d MMMM", idLocale).format(calendar.time)
+            .replaceFirstChar { it.titlecase(idLocale) }
     }
 
-    val filtered = remember(rosters, searchQuery, unitFilter, shiftTab) {
+    val filtered = remember(rosters, searchQuery, unitFilter, shiftTab, todayDay) {
         rosters.filter {
-            (unitFilter == null || it.vehicleId.trim().uppercase() == unitFilter) &&
+            (unitFilter == null || it.vehicleId.trim().uppercase().contains(unitFilter)) &&
                     (searchQuery.isBlank() ||
                             it.driverName.contains(searchQuery.trim(), ignoreCase = true) ||
                             it.vehicleId.contains(searchQuery.trim(), ignoreCase = true)) &&
-                    // tab siang hanya menampilkan driver berjadwal D hari ini, tab malam hanya N
                     it.getShiftsList().getOrNull(todayDay - 1)?.trim()?.uppercase() == shiftTab
         }.sortedBy { it.driverName }
     }
@@ -160,213 +190,367 @@ fun RosterScreen(
         rosters.map { it.vehicleId.trim().uppercase() }.filter { !it.contains("SPARE", true) }
             .distinct().sorted()
     }
+    val todayCode = mySchedule.getOrNull(todayDay - 1)?.code.orEmpty()
+    val workDaysCount = remember(mySchedule) { mySchedule.count { it.code == "D" || it.code == "N" } }
 
-    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 14.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Spacer(Modifier.height(10.dp))
 
-        // Judul + info sinkronisasi
+        // ================= HEADER =================
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.CalendarMonth,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "Roaster Kerja $monthLabel",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        val syncText = if (lastSyncTime > 0) {
-            "Diperbarui: " + SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("id", "ID")).format(lastSyncTime)
-        } else "Belum pernah diperbarui — jadwal tersimpan terakhir di HP ini"
-        Text(syncText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-        Spacer(Modifier.width(0.dp).height(8.dp))
-
-        // Tab pilihan shift: Siang / Malam
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("D" to "Siang", "N" to "Malam").forEach { (code, label) ->
-                Button(
-                    onClick = { shiftTab = code },
-                    colors = if (shiftTab == code)
-                        ButtonDefaults.buttonColors(containerColor = shiftColor(code))
-                    else ButtonDefaults.outlinedButtonColors(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(label, fontWeight = FontWeight.Bold)
-                }
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(EmployeeAccent.copy(alpha = 0.15f), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.CalendarMonth, null, tint = EmployeeAccent, modifier = Modifier.size(24.dp))
             }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // Baris aksi
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onRefreshClick, enabled = !isSyncing) {
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text("Roaster Kerja", fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground)
+                Text(monthLabel + " • " + todayLabel, fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(
+                onClick = onRefreshClick,
+                enabled = !isSyncing,
+                shape = ShapeInner,
+            ) {
                 if (isSyncing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.width(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text("Memperbarui...")
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                 } else {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.width(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Perbarui Jadwal")
+                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
                 }
-            }
-            OutlinedButton(onClick = { unitFilter = null }) {
-                Text("Semua Unit")
+                Spacer(Modifier.width(6.dp))
+                Text(if (isSyncing) "Memuat…" else "Perbarui", fontSize = 12.sp)
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // Pencarian nama driver / unit
+        // ================= KARTU JADWAL SAYA (KALENDER) =================
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = ShapeCard,
+            colors = CardDefaults.cardColors(containerColor = EmployeePrimary),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(driverName.ifBlank { "Driver" }, fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            if (vehicleId.isNotBlank()) "Unit $vehicleId" else "Unit belum dipilih",
+                            fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(shiftLabel(todayCode).uppercase(), fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Hari ini", fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f))
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                MonthlyCalendarGrid(
+                    schedule = mySchedule,
+                    daysInMonth = daysInMonth,
+                    todayDay = todayDay,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Total hari kerja bulan ini: $workDaysCount hari",
+                        fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f)
+                    )
+                    Button(
+                        onClick = onStartShiftClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White, contentColor = EmployeePrimary
+                        ),
+                        shape = ShapeInner,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 14.dp, vertical = 6.dp
+                        )
+                    ) {
+                        Icon(Icons.Default.LocalShipping, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Catat HM", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // ================= TAB SIANG / MALAM =================
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant, ShapeInner),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            listOf("D" to "Siang", "N" to "Malam").forEach { (code, label) ->
+                val selected = shiftTab == code
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(3.dp)
+                        .then(
+                            if (selected)
+                                Modifier.background(shiftColor(code), ShapeInner)
+                            else Modifier
+                        )
+                        .clickable { shiftTab = code }
+                        .padding(vertical = 9.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selected) contrastTextOn(shiftColor(code))
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // ================= PENCARIAN =================
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            placeholder = { Text("Cari nama driver atau nomor unit...") }
+            shape = ShapeInner,
+            placeholder = { Text("Cari nama driver atau nomor unit…") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            trailingIcon = {
+                if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) {
+                    Icon(Icons.Default.Close, "Hapus pencarian")
+                }
+            }
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // Filter cepat berdasarkan nomor unit
+        // Filter cepat nomor unit
         if (vehicleOptions.isNotEmpty()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 vehicleOptions.forEach { v ->
                     val selected = unitFilter == v
-                    OutlinedButton(
-                        onClick = { unitFilter = if (selected) null else v },
-                        colors = if (selected)
-                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                        else ButtonDefaults.outlinedButtonColors(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (selected) EmployeePrimary else MaterialTheme.colorScheme.surface,
+                                CircleShape
+                            )
+                            .border(
+                                1.dp,
+                                if (selected) EmployeePrimary else MaterialTheme.colorScheme.outline,
+                                CircleShape
+                            )
+                            .clickable { unitFilter = if (selected) null else v }
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
                     ) {
-                        Text(v, fontSize = 12.sp)
+                        Text(
+                            v, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
         }
 
-        // Peringatan unit tanpa driver pada shift terpilih — selalu PALING ATAS
+        // ================= UNIT TANPA DRIVER (PALING ATAS) =================
         if (emptyUnits.isNotEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = ShapeInner,
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFF3E0)
-                )
+                shape = ShapeCard,
+                colors = CardDefaults.cardColors(containerColor = CodeDayBg),
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.WarningAmber,
-                            contentDescription = null,
-                            tint = Color(0xFFEF6C00)
-                        )
+                        Icon(Icons.Default.WarningAmber, null, tint = EmployeeAccent)
                         Spacer(Modifier.width(6.dp))
                         Text(
                             "Unit Tanpa Driver Shift ${if (shiftTab == "D") "Siang" else "Malam"} Hari Ini",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE65100)
+                            fontSize = 13.sp, fontWeight = FontWeight.Bold, color = CodeDay,
                         )
                     }
                     Text(
-                        "${emptyUnits.size} unit sedang kosong karena pasangannya berhalangan. Driver cadangan (spare) dapat mengambil alih unit ini.",
-                        fontSize = 11.sp,
-                        color = Color(0xFFBF360C),
+                        "${emptyUnits.size} unit kosong karena pasangannya berhalangan. " +
+                                "Driver cadangan (spare) dapat mengambil alih unit ini.",
+                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = 2.dp)
                     )
                     Spacer(Modifier.height(6.dp))
                     emptyUnits.forEach { (vehicle, absentCode) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .width(8.dp).height(8.dp)
-                                    .background(shiftColor(absentCode), RoundedCornerShape(2.dp))
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 2.dp)) {
+                            Box(Modifier.size(8.dp)
+                                .background(shiftColor(absentCode), RoundedCornerShape(2.dp)))
                             Spacer(Modifier.width(6.dp))
-                            Text("Unit $vehicle", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Unit $vehicle", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface)
                             Spacer(Modifier.width(6.dp))
-                            Text("(pasangan: $absentCode)", fontSize = 11.sp, color = Color(0xFF6D4C41))
+                            Text("(pasangan: ${shiftLabel(absentCode)})", fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
         }
 
-
-        Spacer(Modifier.height(8.dp))
-
+        // ================= DAFTAR DRIVER ARMADA =================
         if (rosters.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "Jadwal belum tersedia",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+            Card(modifier = Modifier.fillMaxWidth(), shape = ShapeCard,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("Jadwal belum tersedia", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Tekan tombol \"Perbarui Jadwal\" saat ada koneksi internet untuk mengambil jadwal dari Google Sheet.",
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
+                        "Hubungi mandor/foreman Anda agar akun didaftarkan dan jadwal dimuat. " +
+                                "Jadwal juga tersimpan otomatis saat aplikasi dibuka jika ada internet.",
+                        fontSize = 12.sp, textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            return@Column
-        }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Daftar Driver — Shift ${if (shiftTab == "D") "Siang" else "Malam"} ($monthLabel)",
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("${filtered.size} orang", fontSize = 12.sp,
+                    color = EmployeeOkGreen, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(8.dp))
 
-        if (filtered.isEmpty()) {
-            Text(
-                "Tidak ada driver shift ${if (shiftTab == "D") "siang" else "malam"} yang cocok dengan pencarian/filter ini.",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
-
-        Text(
-            "${filtered.size} driver ditampilkan",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(6.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(filtered, key = { it.id }) { roster ->
-                RosterRow(
-                    roster = roster,
-                    daysInMonth = daysInMonth,
-                    todayDay = todayDay,
-                    highlightSelf = driverName.isNotBlank() &&
-                            roster.driverName == driverName.uppercase()
+            if (filtered.isEmpty()) {
+                Text(
+                    "Tidak ada driver shift ${if (shiftTab == "D") "siang" else "malam"} yang cocok dengan pencarian/filter ini.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
             }
-            item { Spacer(Modifier.height(8.dp)) }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                filtered.forEach { roster ->
+                    RosterRow(
+                        roster = roster,
+                        daysInMonth = daysInMonth,
+                        todayDay = todayDay,
+                        highlightSelf = driverName.isNotBlank() &&
+                                roster.driverName == driverName.uppercase()
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+
+        val syncText = if (lastSyncTime > 0) {
+            "Jadwal diperbarui: " + SimpleDateFormat("dd/MM/yyyy HH:mm", idLocale).format(lastSyncTime)
+        } else "Jadwal tersimpan terakhir di HP ini"
+        Text(syncText, fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+    }
+}
+
+/** Grid kalender sebulan untuk driver yang login. */
+@Composable
+private fun MonthlyCalendarGrid(
+    schedule: List<DaySchedule>,
+    daysInMonth: Int,
+    todayDay: Int,
+) {
+    val firstDow = remember {
+        val c = Calendar.getInstance()
+        c.set(Calendar.DAY_OF_MONTH, 1)
+        ((c.get(Calendar.DAY_OF_WEEK) + 5) % 7) // 0 = Senin
+    }
+    val dayNames = remember { listOf("S", "S", "R", "K", "J", "S", "M") }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            dayNames.forEach { d ->
+                Text(d, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            }
+        }
+        val cells = firstDow + daysInMonth
+        val rows = (cells + 6) / 7
+        for (r in 0 until rows) {
+            Row(Modifier.fillMaxWidth()) {
+                for (col in 0 until 7) {
+                    val idx = r * 7 + col
+                    val day = idx - firstDow + 1
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        if (day in 1..daysInMonth) {
+                            val code = schedule.getOrNull(day - 1)?.code.orEmpty()
+                            val isToday = day == todayDay
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "$day", fontSize = 9.sp,
+                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isToday) Color.White else Color.White.copy(alpha = 0.85f)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .background(
+                                            if (code.isEmpty()) Color.White.copy(alpha = 0.12f)
+                                            else shiftColor(code).copy(alpha = 0.92f),
+                                            CircleShape
+                                        )
+                                        .then(if (isToday) Modifier.border(2.dp, Color.White, CircleShape) else Modifier),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        code.ifEmpty { "-" },
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (code.isEmpty()) Color.White.copy(alpha = 0.5f)
+                                        else contrastTextOn(shiftColor(code)),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -376,61 +560,68 @@ private fun RosterRow(
     roster: RosterEntity,
     daysInMonth: Int,
     todayDay: Int,
-    highlightSelf: Boolean
+    highlightSelf: Boolean,
 ) {
     val shifts = remember(roster) { roster.getShiftsList() }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = ShapeInner,
+        shape = ShapeCard,
         colors = CardDefaults.cardColors(
-            containerColor = if (highlightSelf)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-            else MaterialTheme.colorScheme.surface
-        )
+            containerColor = if (highlightSelf) EmployeePrimarySoft else MaterialTheme.colorScheme.surface
+        ),
+        border = if (highlightSelf) androidx.compose.foundation.BorderStroke(1.dp, EmployeePrimary) else null,
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
-            Text(
-                roster.driverName + if (highlightSelf) "  ★" else "",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                roster.vehicleId,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Divider(modifier = Modifier.padding(vertical = 6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        roster.driverName + if (highlightSelf) "  ★ Anda" else "",
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(roster.vehicleId, fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                val todayCode = shifts.getOrNull(todayDay - 1)?.trim()?.uppercase().orEmpty()
+                if (todayCode.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .background(shiftColor(todayCode), ShapeInner)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(shiftLabel(todayCode), fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            color = contrastTextOn(shiftColor(todayCode)))
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
             Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 for (day in 1..daysInMonth) {
-                    val code = shifts.getOrElse(day - 1) { "" }
+                    val code = shifts.getOrElse(day - 1) { "" }.trim().uppercase()
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "$day",
-                            fontSize = 9.sp,
-                            color = if (day == todayDay)
-                                MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            "$day", fontSize = 8.sp,
+                            color = if (day == todayDay) EmployeeAccent else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = if (day == todayDay) FontWeight.Bold else FontWeight.Normal
                         )
                         Box(
                             modifier = Modifier
                                 .padding(top = 2.dp)
-                                .width(if (code.length > 1) 26.dp else 18.dp)
-                                .height(22.dp)
+                                .width(if (code.length > 1) 24.dp else 16.dp)
+                                .height(20.dp)
                                 .background(
-                                    if (code.isEmpty()) Color(0x14000000) else shiftColor(code),
-                                    RoundedCornerShape(4.dp)
+                                    if (code.isEmpty()) MaterialTheme.colorScheme.surfaceVariant
+                                    else shiftColor(code),
+                                    RoundedCornerShape(5.dp)
                                 ),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 code.ifEmpty { "-" },
-                                fontSize = 9.sp,
-                                color = if (code.isEmpty())
-                                    Color(0x66000000)
-                                else Color.White,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 8.sp,
+                                color = if (code.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                else contrastTextOn(shiftColor(code)),
+                                fontWeight = FontWeight.Bold,
                             )
                         }
                     }
@@ -440,3 +631,4 @@ private fun RosterRow(
         }
     }
 }
+

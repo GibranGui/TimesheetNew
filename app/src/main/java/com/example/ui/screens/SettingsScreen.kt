@@ -60,7 +60,7 @@ import androidx.compose.ui.unit.dp
 import com.example.data.local.AccountManager
 import com.example.data.local.LoadingAreaEntity
 import com.example.data.remote.SyncStatus
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 import com.example.ui.theme.ShapeCard
 import com.example.ui.viewmodel.UpdateInfo
 
@@ -122,7 +122,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.GpsFixed, contentDescription = null, tint = MintPrimary)
+                        Icon(Icons.Default.GpsFixed, contentDescription = null, tint = EmployeePrimary)
                         Text("Konfigurasi Loading Area", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Text(
@@ -145,7 +145,7 @@ fun SettingsScreen(
                     // 1x KLIK AMBIL KOORDINAT DARI GPS SAAT INI
                     Button(
                         onClick = onCalibrateFromGpsClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -196,7 +196,7 @@ fun SettingsScreen(
                             onSaveLoadingArea(lat, lng, rad)
                             saveSuccess = true
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("btn_simpan_area_settings")
@@ -207,7 +207,7 @@ fun SettingsScreen(
                     if (saveSuccess) {
                         Text(
                             text = "✓ Koordinat & radius berhasil disimpan!",
-                            color = MintPrimary,
+                            color = EmployeePrimary,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -223,7 +223,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = MintPrimary)
+                        Icon(Icons.Default.Person, contentDescription = null, tint = EmployeePrimary)
                         Text("Akun Saya", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     if (profile != null) {
@@ -258,7 +258,7 @@ fun SettingsScreen(
                         Icon(
                             imageVector = if (serverConfigured) Icons.Default.CloudDone else Icons.Default.CloudOff,
                             contentDescription = null,
-                            tint = MintPrimary
+                            tint = EmployeePrimary
                         )
                         Text("Penyimpanan & Cadangan Online", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
@@ -270,7 +270,7 @@ fun SettingsScreen(
                     )
 
                     when (syncStatus) {
-                        is SyncStatus.Running -> Text("Status: ${syncStatus.progress}…", color = MintPrimary, style = MaterialTheme.typography.bodySmall)
+                        is SyncStatus.Running -> Text("Status: ${syncStatus.progress}…", color = EmployeePrimary, style = MaterialTheme.typography.bodySmall)
                         is SyncStatus.Success -> Text("Sinkron terakhir berhasil (${syncStatus.pushed} dikirim, ${syncStatus.pulled} diperbarui).", style = MaterialTheme.typography.bodySmall)
                         is SyncStatus.Failed -> Text("Sinkron belum berhasil: ${syncStatus.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         else -> {}
@@ -278,7 +278,7 @@ fun SettingsScreen(
 
                     Button(
                         onClick = onSyncNowClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("SINKRONKAN SEKARANG", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
@@ -308,7 +308,7 @@ fun SettingsScreen(
                 val context = LocalContext.current
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MintPrimary)
+                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = EmployeePrimary)
                         Text("Pembaruan Aplikasi (GitHub Releases)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Text("Versi Terpasang: v${updateInfo.currentVersion}", fontWeight = FontWeight.Medium)
@@ -317,7 +317,7 @@ fun SettingsScreen(
                         Text(
                             text = updateInfo.message,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (updateInfo.isAvailable) MintPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (updateInfo.isAvailable) EmployeePrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -336,7 +336,7 @@ fun SettingsScreen(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo.downloadUrl))
                                 context.startActivity(intent)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                            colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                             shape = ShapeInner,
                             modifier = Modifier.fillMaxWidth().height(48.dp)
                         ) {

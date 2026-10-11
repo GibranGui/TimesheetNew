@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ShiftEntity
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 
 @Composable
 fun EditActiveShiftDialog(
@@ -44,7 +44,7 @@ fun EditActiveShiftDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.Edit, contentDescription = null, tint = MintPrimary)
+                Icon(Icons.Default.Edit, contentDescription = null, tint = EmployeePrimary)
                 Text("Edit Data Shift Aktif", fontWeight = FontWeight.Bold)
             }
         },
@@ -116,7 +116,7 @@ fun EditActiveShiftDialog(
                     }
                     onConfirm(unitText, dateText, hm, km)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                 modifier = Modifier.testTag("btn_save_edit_shift")
             ) {
                 Text("SIMPAN PERUBAHAN", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)

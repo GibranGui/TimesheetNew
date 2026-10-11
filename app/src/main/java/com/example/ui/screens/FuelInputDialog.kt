@@ -29,7 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 
 @Composable
 fun FuelInputDialog(
@@ -47,7 +47,7 @@ fun FuelInputDialog(
                 Icon(
                     imageVector = Icons.Default.LocalGasStation,
                     contentDescription = null,
-                    tint = MintPrimary
+                    tint = EmployeePrimary
                 )
                 Text(
                     text = "Tambah Pengisian Fuel",
@@ -110,7 +110,7 @@ fun FuelInputDialog(
                     }
                     onConfirm(hm, liter)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                 modifier = Modifier.testTag("btn_simpan_fuel")
             ) {
                 Text("SIMPAN", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)

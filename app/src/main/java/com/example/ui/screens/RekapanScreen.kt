@@ -59,7 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ShiftEntity
 import com.example.ui.theme.MiningAccentBlue
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 import com.example.ui.theme.MiningGreenActive
 import com.example.ui.theme.ShapeCard
 
@@ -85,7 +85,7 @@ fun RekapanScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(imageVector = Icons.Default.Assessment, contentDescription = null, tint = MintPrimary)
+                        Icon(imageVector = Icons.Default.Assessment, contentDescription = null, tint = EmployeePrimary)
                         Text("Rekapan HM Time Sheet", fontWeight = FontWeight.Bold)
                     }
                 },
@@ -126,17 +126,17 @@ fun RekapanScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MintPrimary)
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = EmployeePrimary)
                             Text("Periode Aktif:", fontWeight = FontWeight.SemiBold)
                         }
                         Surface(
                             shape = ShapeInner,
-                            color = MintPrimary.copy(alpha = 0.2f)
+                            color = EmployeePrimary.copy(alpha = 0.2f)
                         ) {
                             Text(
                                 text = "Oktober 2026 ($selectedMonth)",
                                 fontWeight = FontWeight.Bold,
-                                color = MintPrimary,
+                                color = EmployeePrimary,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
@@ -156,7 +156,7 @@ fun RekapanScreen(
                             text = "TOTAL AKUMULASI BULAN INI",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MintPrimary
+                            color = EmployeePrimary
                         )
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,7 +171,7 @@ fun RekapanScreen(
                                 value = "$totalRitase",
                                 unit = "rit",
                                 modifier = Modifier.weight(1f),
-                                highlightColor = MintPrimary
+                                highlightColor = EmployeePrimary
                             )
                         }
 
@@ -329,7 +329,7 @@ fun ShiftTableRowCard(
                     text = "${shift.date} • ${shift.unitId}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MintPrimary
+                    color = EmployeePrimary
                 )
                 Surface(
                     shape = RoundedCornerShape(6.dp),
@@ -352,16 +352,16 @@ fun ShiftTableRowCard(
                 Column {
                     Text("HM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${shift.hmAwal} → ${shift.hmAkhir ?: '-'}", style = MaterialTheme.typography.bodySmall)
-                    Text("Total: ${String.format("%.1f", shift.totalHm)}", fontWeight = FontWeight.Bold, color = MintPrimary)
+                    Text("Total: ${String.format("%.1f", shift.totalHm)}", fontWeight = FontWeight.Bold, color = EmployeePrimary)
                 }
                 Column {
                     Text("KM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${shift.kmAwal.toInt()} → ${shift.kmAkhir?.toInt() ?: '-'}", style = MaterialTheme.typography.bodySmall)
-                    Text("Total: ${shift.totalKm.toInt()}", fontWeight = FontWeight.Bold, color = MintPrimary)
+                    Text("Total: ${shift.totalKm.toInt()}", fontWeight = FontWeight.Bold, color = EmployeePrimary)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("RITASE & FUEL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${shift.totalRitase} Rit", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MintPrimary)
+                    Text("${shift.totalRitase} Rit", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = EmployeePrimary)
                     Text("${shift.totalFuel.toInt()} Liter", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -407,7 +407,7 @@ fun ShiftDetailPopup(
         confirmButton = {
             Button(
                 onClick = onEditClick,
-                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                 modifier = Modifier.testTag("btn_popup_edit_shift")
             ) {
                 Text("KOREKSI DATA", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)

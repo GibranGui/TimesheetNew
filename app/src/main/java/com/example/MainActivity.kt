@@ -49,14 +49,15 @@ import com.example.ui.screens.RekapanScreen
 import com.example.ui.screens.RosterScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StartShiftScreen
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeeAccent
+import com.example.ui.theme.EmployeePrimary
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.MainViewModel
 
 enum class AppTab {
-    SHIFT,
-    REKAPAN,
-    JADWAL,
+    ROASTER,   // menu utama: jadwal kerja sebulan (terpisah dari timesheet)
+    SHIFT,     // catat shift aktif (timesheet)
+    REKAPAN,   // rekapan HM
     PENGATURAN
 }
 
@@ -203,7 +204,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                 Icon(
                     Icons.Default.SystemUpdate,
                     contentDescription = null,
-                    tint = MintPrimary
+                    tint = EmployeePrimary
                 )
             },
             title = { Text("Pembaruan Tersedia") },
@@ -237,7 +238,7 @@ fun MainAppContent(viewModel: MainViewModel) {
         )
     }
 
-    var currentTab by remember { mutableStateOf(AppTab.SHIFT) }
+    var currentTab by remember { mutableStateOf(AppTab.ROASTER) }
     var showHistoryScreen by remember { mutableStateOf(false) }
     var showFuelDialog by remember { mutableStateOf(false) }
     var showEndShiftDialog by remember { mutableStateOf(false) }
@@ -289,17 +290,33 @@ fun MainAppContent(viewModel: MainViewModel) {
                     tonalElevation = 0.dp,
                     modifier = Modifier.testTag("bottom_nav_bar")
                 ) {
+                    // ---- Menu utama: Roaster (jadwal kerja) ----
+                    NavigationBarItem(
+                        selected = currentTab == AppTab.ROASTER,
+                        onClick = { currentTab = AppTab.ROASTER },
+                        icon = {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "Roaster")
+                        },
+                        label = { Text("Roaster", fontWeight = FontWeight.SemiBold) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = EmployeeAccent,
+                            selectedTextColor = EmployeeAccent,
+                            indicatorColor = EmployeeAccent.copy(alpha = 0.16f)
+                        ),
+                        modifier = Modifier.testTag("tab_roaster")
+                    )
+
                     NavigationBarItem(
                         selected = currentTab == AppTab.SHIFT,
                         onClick = { currentTab = AppTab.SHIFT },
                         icon = {
                             Icon(Icons.Default.LocalShipping, contentDescription = "Shift")
                         },
-                        label = { Text("Shift", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Catat HM", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MintPrimary,
-                            selectedTextColor = MintPrimary,
-                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
+                            selectedIconColor = EmployeePrimary,
+                            selectedTextColor = EmployeePrimary,
+                            indicatorColor = EmployeePrimary.copy(alpha = 0.14f)
                         ),
                         modifier = Modifier.testTag("tab_shift")
                     )
@@ -308,30 +325,15 @@ fun MainAppContent(viewModel: MainViewModel) {
                         selected = currentTab == AppTab.REKAPAN,
                         onClick = { currentTab = AppTab.REKAPAN },
                         icon = {
-                            Icon(Icons.Default.Assessment, contentDescription = "Catat HM")
+                            Icon(Icons.Default.Assessment, contentDescription = "Rekapan")
                         },
-                        label = { Text("Catat HM", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Rekapan", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MintPrimary,
-                            selectedTextColor = MintPrimary,
-                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
+                            selectedIconColor = EmployeePrimary,
+                            selectedTextColor = EmployeePrimary,
+                            indicatorColor = EmployeePrimary.copy(alpha = 0.14f)
                         ),
                         modifier = Modifier.testTag("tab_rekapan")
-                    )
-
-                    NavigationBarItem(
-                        selected = currentTab == AppTab.JADWAL,
-                        onClick = { currentTab = AppTab.JADWAL },
-                        icon = {
-                            Icon(Icons.Default.CalendarMonth, contentDescription = "Roaster")
-                        },
-                        label = { Text("Roaster", fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MintPrimary,
-                            selectedTextColor = MintPrimary,
-                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
-                        ),
-                        modifier = Modifier.testTag("tab_jadwal")
                     )
 
                     NavigationBarItem(
@@ -340,11 +342,11 @@ fun MainAppContent(viewModel: MainViewModel) {
                         icon = {
                             Icon(Icons.Default.Tune, contentDescription = "Pengaturan")
                         },
-                        label = { Text("Pengaturan", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Akun", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MintPrimary,
-                            selectedTextColor = MintPrimary,
-                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
+                            selectedIconColor = EmployeePrimary,
+                            selectedTextColor = EmployeePrimary,
+                            indicatorColor = EmployeePrimary.copy(alpha = 0.14f)
                         ),
                         modifier = Modifier.testTag("tab_settings")
                     )
@@ -362,6 +364,30 @@ fun MainAppContent(viewModel: MainViewModel) {
                 )
             } else {
                 when (currentTab) {
+                    AppTab.ROASTER -> {
+                        // Menu utama: jadwal kerja driver yang login, format kalender sebulan.
+                        val isRosterSyncing by viewModel.isRosterSyncing.collectAsStateWithLifecycle()
+                        val rosterLastSync by viewModel.rosterLastSync.collectAsStateWithLifecycle()
+                        val calNow0 = java.util.Calendar.getInstance()
+                        val daysInMonth0 = calNow0.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
+                        val myName0 = accountState.profile?.fullName.orEmpty()
+                        val mySchedule = remember(rosters, myName0) {
+                            (1..daysInMonth0).map { d ->
+                                com.example.ui.screens.DaySchedule(d, viewModel.rosterCodeForDay(myName0, d))
+                            }
+                        }
+                        RosterScreen(
+                            rosters = rosters,
+                            mySchedule = mySchedule,
+                            driverName = myName0,
+                            vehicleId = activeShift?.unit ?: recentUnits.firstOrNull().orEmpty(),
+                            isSyncing = isRosterSyncing,
+                            lastSyncTime = rosterLastSync,
+                            onRefreshClick = { viewModel.syncRosterNow() },
+                            onStartShiftClick = { currentTab = AppTab.SHIFT }
+                        )
+                    }
+
                     AppTab.SHIFT -> {
                         if (activeShift == null) {
                             StartShiftScreen(
@@ -453,18 +479,6 @@ fun MainAppContent(viewModel: MainViewModel) {
                                     shiftId, unit, date, hmAwal, hmAkhir, kmAwal, kmAkhir
                                 )
                             }
-                        )
-                    }
-
-                    AppTab.JADWAL -> {
-                        val isRosterSyncing by viewModel.isRosterSyncing.collectAsStateWithLifecycle()
-                        val rosterLastSync by viewModel.rosterLastSync.collectAsStateWithLifecycle()
-                        RosterScreen(
-                            rosters = rosters,
-                            isSyncing = isRosterSyncing,
-                            lastSyncTime = rosterLastSync,
-                            driverName = accountState.profile?.fullName.orEmpty(),
-                            onRefreshClick = { viewModel.syncRosterNow() }
                         )
                     }
 

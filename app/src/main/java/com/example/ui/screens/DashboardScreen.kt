@@ -61,9 +61,9 @@ import com.example.data.local.RosterEntity
 import com.example.data.local.ShiftEntity
 import com.example.domain.GpsState
 import com.example.service.GpsTrackingState
-import com.example.ui.theme.GradientHero
-import com.example.ui.theme.LimeOk
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeeAccent
+import com.example.ui.theme.EmployeePrimary
+import com.example.ui.theme.contrastTextOn
 import com.example.ui.theme.MiningGreenActive
 import com.example.ui.theme.MiningRedAlert
 import com.example.ui.theme.ShapeCard
@@ -120,13 +120,13 @@ fun DashboardScreen(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(MintPrimary.copy(alpha = 0.14f), RoundedCornerShape(14.dp)),
+                                .background(EmployeePrimary.copy(alpha = 0.14f), RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.LocalShipping,
                                 contentDescription = null,
-                                tint = MintPrimary,
+                                tint = EmployeePrimary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -146,7 +146,7 @@ fun DashboardScreen(
                 },
                 actions = {
                     IconButton(onClick = onEditShiftClick, modifier = Modifier.testTag("btn_edit_active_shift")) {
-                        Icon(Icons.Default.Edit, contentDescription = "Ubah Data Shift", tint = MintPrimary)
+                        Icon(Icons.Default.Edit, contentDescription = "Ubah Data Shift", tint = EmployeePrimary)
                     }
                     IconButton(onClick = onOpenHistoryClick, modifier = Modifier.testTag("btn_menu_history")) {
                         Icon(Icons.Default.History, contentDescription = "Riwayat")
@@ -173,7 +173,12 @@ fun DashboardScreen(
             // RINGKASAN KERJA SAYA: total jam kerja, total ritase bulan berjalan, dan jadwal hari ini
             val monthTotalHm = remember(monthShifts) { monthShifts.sumOf { it.totalHm } }
             val monthTotalRitase = remember(monthShifts) { monthShifts.sumOf { it.totalRitase } }
-            GradientHero(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(EmployeePrimary, ShapeCard)
+                    .padding(20.dp)
+            ) {
                 Column {
                     Text(
                         if (driverName.isNotBlank()) "HALO, $driverName 👋" else "RINGKASAN KERJA SAYA",
@@ -201,7 +206,7 @@ fun DashboardScreen(
                         }
                         Box(Modifier.width(1.dp).height(40.dp).background(Color.White.copy(alpha = 0.25f)))
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                            Text("$monthTotalRitase", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = LimeOk)
+                            Text("$monthTotalRitase", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFD54F))
                             Text("Total Ritase", fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f))
                         }
                         Box(Modifier.width(1.dp).height(40.dp).background(Color.White.copy(alpha = 0.25f)))
@@ -224,7 +229,7 @@ fun DashboardScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MintPrimary)
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = EmployeePrimary)
                         Text(
                             text = "Jadwal Kerja $currentMonthLabel",
                             style = MaterialTheme.typography.titleSmall,
@@ -251,7 +256,7 @@ fun DashboardScreen(
                                         modifier = Modifier
                                             .size(width = 34.dp, height = 44.dp)
                                             .background(
-                                                if (isToday) MintPrimary.copy(alpha = 0.16f) else Color.Transparent,
+                                                if (isToday) EmployeePrimary.copy(alpha = 0.16f) else Color.Transparent,
                                                 RoundedCornerShape(10.dp)
                                             ),
                                         contentAlignment = Alignment.Center
@@ -261,7 +266,7 @@ fun DashboardScreen(
                                                 "${day.day}",
                                                 fontSize = 10.sp,
                                                 fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium,
-                                                color = if (isToday) MintPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = if (isToday) EmployeePrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             Text(
                                                 day.code.ifBlank { "-" },
@@ -275,7 +280,7 @@ fun DashboardScreen(
                             }
                         }
                         Text(
-                            text = "D = hari • N = malam • OFF = libur • CR = perbaikan • CT = tunggu • I = insiden",
+                            text = "Siang = shift siang • Malam = shift malam • Libur = istirahat • Cuti roster/tahunan/induksi",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -326,7 +331,7 @@ fun DashboardScreen(
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MintPrimary
+                        color = EmployeePrimary
                     )
                     Text(
                         text = gpsState.statusMessage,
@@ -351,7 +356,7 @@ fun DashboardScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Place, contentDescription = null, tint = MintPrimary)
+                        Icon(Icons.Default.Place, contentDescription = null, tint = EmployeePrimary)
                         Text(
                             text = "Titik Area Muat",
                             fontWeight = FontWeight.Bold,
@@ -365,7 +370,7 @@ fun DashboardScreen(
                     )
                     Button(
                         onClick = onCalibrateLoadingAreaClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                         shape = ShapeInner,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -408,7 +413,7 @@ fun DashboardScreen(
                         text = "${ritaseList.size}",
                         fontSize = 58.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = MintPrimary
+                        color = EmployeePrimary
                     )
                     Text(
                         text = "Dihitung otomatis oleh GPS saat alat keluar dari area muat",
@@ -455,12 +460,12 @@ fun DashboardScreen(
                                 )
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = MintPrimary.copy(alpha = 0.2f)
+                                    color = EmployeePrimary.copy(alpha = 0.2f)
                                 ) {
                                     Text(
                                         text = "${item.count} rit",
                                         fontWeight = FontWeight.Bold,
-                                        color = MintPrimary,
+                                        color = EmployeePrimary,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
@@ -503,7 +508,7 @@ fun DashboardScreen(
                             text = "Total: ${totalFuel.toInt()} L",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MintPrimary
+                            color = EmployeePrimary
                         )
                     }
                     HorizontalDivider()
@@ -535,7 +540,7 @@ fun DashboardScreen(
                                     Text(
                                         text = "${fuel.liter.toInt()} L",
                                         fontWeight = FontWeight.Bold,
-                                        color = MintPrimary
+                                        color = EmployeePrimary
                                     )
                                     IconButton(
                                         onClick = { onDeleteFuelClick(fuel.id) },
@@ -596,7 +601,7 @@ fun DashboardScreen(
                         .height(54.dp)
                         .testTag("btn_tambah_fuel")
                 ) {
-                    Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = MintPrimary)
+                    Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = EmployeePrimary)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "ISI BBM",
@@ -607,7 +612,7 @@ fun DashboardScreen(
 
                 Button(
                     onClick = onEndShiftClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                     shape = ShapeInner,
                     modifier = Modifier
                         .weight(1f)

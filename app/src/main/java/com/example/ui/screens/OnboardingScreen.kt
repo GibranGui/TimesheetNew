@@ -43,7 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 import com.example.ui.theme.MiningAccentBlue
 import com.example.ui.theme.MiningGreenActive
 
@@ -63,7 +63,7 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
     val pages = remember {
         listOf(
             OnboardPage(
-                Icons.Default.LocalShipping, MintPrimary,
+                Icons.Default.LocalShipping, EmployeePrimary,
                 "Catat Shift Harian",
                 "Tekan \"Mulai Shift\" di awal kerja, isi unit dan jam mesin. " +
                     "Saat selesai kerja, tekan \"Akhiri Shift\". Semua tercatat otomatis."
@@ -81,7 +81,7 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
                     "untuk melihat total jam kerja, ritase, dan BBM per bulan."
             ),
             OnboardPage(
-                Icons.Default.BatterySaver, MintPrimary,
+                Icons.Default.BatterySaver, EmployeePrimary,
                 "Tetap Jalan Tanpa Kuota",
                 "Aplikasi bisa dipakai sepenuhnya tanpa internet. Saat ada sinyal, catatan Anda " +
                     "otomatis tersimpan juga ke server pusat atas nama Anda — aman jika HP hilang atau rusak."
@@ -170,7 +170,7 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
                         modifier = Modifier
                             .size(if (i == pagerState.currentPage) 10.dp else 7.dp)
                             .background(
-                                if (i == pagerState.currentPage) MintPrimary
+                                if (i == pagerState.currentPage) EmployeePrimary
                                 else MaterialTheme.colorScheme.surfaceVariant,
                                 CircleShape
                             )
@@ -188,7 +188,7 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
                         onFinished()
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                 shape = ShapeInner,
                 modifier = Modifier
                     .fillMaxWidth()

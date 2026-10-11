@@ -35,7 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ShiftEntity
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 import com.example.ui.theme.MiningGreenActive
 import com.example.ui.theme.ShapeCard
 
@@ -154,7 +154,7 @@ fun EndShiftDialog(
                             Text(
                                 String.format("%.1f", totalHm),
                                 fontWeight = FontWeight.Bold,
-                                color = MintPrimary
+                                color = EmployeePrimary
                             )
                         }
                         Row(
@@ -165,7 +165,7 @@ fun EndShiftDialog(
                             Text(
                                 String.format("%.1f", totalKm),
                                 fontWeight = FontWeight.Bold,
-                                color = MintPrimary
+                                color = EmployeePrimary
                             )
                         }
                         Row(
@@ -215,7 +215,7 @@ fun EndShiftDialog(
                     }
                     onConfirm(hmAkhirVal, kmAkhirVal)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                 modifier = Modifier.testTag("btn_simpan_selesai")
             ) {
                 Text("SIMPAN & SELESAI", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)

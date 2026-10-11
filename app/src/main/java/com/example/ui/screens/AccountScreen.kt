@@ -45,7 +45,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 
 /**
  * Layar pembuka aplikasi: masuk atau membuat akun.
@@ -83,6 +83,7 @@ fun AccountScreen(
         contentAlignment = Alignment.Center
     ) {
         Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -90,13 +91,13 @@ fun AccountScreen(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(MintPrimary.copy(alpha = 0.15f), ShapeInner),
+                    .background(EmployeePrimary.copy(alpha = 0.15f), ShapeInner),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.LocalShipping,
                     contentDescription = null,
-                    tint = MintPrimary,
+                    tint = EmployeePrimary,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -237,7 +238,7 @@ fun AccountScreen(
                             }
                         },
                         enabled = canSubmit,
-                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
                         shape = ShapeInner,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -259,7 +260,7 @@ fun AccountScreen(
                             Text(
                                 text = if (isRegisterMode) "Sudah punya akun? Masuk di sini"
                                 else "Belum punya akun? Buat baru",
-                                color = MintPrimary,
+                                color = EmployeePrimary,
                                 fontSize = 13.sp
                             )
                         }

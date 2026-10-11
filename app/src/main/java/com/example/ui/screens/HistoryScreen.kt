@@ -40,7 +40,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ShiftEntity
-import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.EmployeePrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,7 +138,7 @@ fun ShiftHistoryCard(
                     text = "${shift.date} • ${shift.unitId}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MintPrimary
+                    color = EmployeePrimary
                 )
                 Text(
                     text = "SELESAI",
@@ -189,11 +189,11 @@ fun ShiftDetailDialog(
                 HorizontalDivider()
                 Text("HM Awal: ${shift.hmAwal}")
                 Text("HM Akhir: ${shift.hmAkhir ?: '-'}")
-                Text("Total HM: ${String.format("%.1f", shift.totalHm)}", fontWeight = FontWeight.Bold, color = MintPrimary)
+                Text("Total HM: ${String.format("%.1f", shift.totalHm)}", fontWeight = FontWeight.Bold, color = EmployeePrimary)
                 HorizontalDivider()
                 Text("KM Awal: ${shift.kmAwal.toInt()}")
                 Text("KM Akhir: ${shift.kmAkhir?.toInt() ?: '-'}")
-                Text("Total KM: ${shift.totalKm.toInt()} KM", fontWeight = FontWeight.Bold, color = MintPrimary)
+                Text("Total KM: ${shift.totalKm.toInt()} KM", fontWeight = FontWeight.Bold, color = EmployeePrimary)
                 HorizontalDivider()
                 Text("Total Ritase: ${shift.totalRitase}", fontWeight = FontWeight.Bold)
                 Text("Total Fuel: ${shift.totalFuel.toInt()} L", fontWeight = FontWeight.Bold)

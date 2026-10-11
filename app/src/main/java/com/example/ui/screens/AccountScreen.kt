@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -130,13 +131,46 @@ fun AccountScreen(
                     if (isRegisterMode) {
                         OutlinedTextField(
                             value = fullName,
-                            onValueChange = { fullName = it },
-                            label = { Text("Nama lengkap") },
+                            onValueChange = {
+                                fullName = it
+                                onSearchDriverName(it)
+                            },
+                            label = { Text("Nama lengkap (sesuai jadwal kantor)") },
+                            supportingText = {
+                                Text("Ketik minimal 2 huruf — nama akan dicocokkan dengan daftar driver di jadwal kerja.")
+                            },
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        // Saran nama driver dari jadwal kerja (Google Sheet yang sudah tersimpan di HP)
+                        if (driverSuggestions.isNotEmpty() && fullName.trim().length >= 2 &&
+                            !driverSuggestions.any { it.equals(fullName.trim(), ignoreCase = true) }
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    "Nama yang ada di jadwal kerja:",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                                ) {
+                                    driverSuggestions.take(6).forEach { name ->
+                                        OutlinedButton(onClick = { fullName = name }) {
+                                            Text(name, fontSize = 12.sp, maxLines = 1)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         OutlinedTextField(
                             value = phone,
                             onValueChange = { if (it.length <= 14) phone = it },

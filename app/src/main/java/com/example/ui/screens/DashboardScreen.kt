@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -165,7 +166,16 @@ fun DashboardScreen(
                             Text(
                                 text = if (todayRosterCode.isBlank()) "-" else todayRosterCode,
                                 fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                                color = rosterCodeColor(todayRosterCode)
+                                color = when (todayRosterCode.trim().uppercase()) {
+                                    "D" -> MiningGreenActive
+                                    "N" -> Color(0xFF7B1FA2)
+                                    "OFF" -> Color(0xFF546E7A)
+                                    "CR" -> Color(0xFFEF6C00)
+                                    "CTD" -> Color(0xFFAD1457)
+                                    "CTN" -> Color(0xFF00838F)
+                                    "I" -> MiningRedAlert
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
                             )
                             Text("Jadwal Hari Ini", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }

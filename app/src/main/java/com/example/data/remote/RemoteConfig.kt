@@ -26,13 +26,13 @@ object RemoteConfig {
      *   "https://abcdefghijklm.supabase.co"
      * Biarkan kosong jika belum punya server (aplikasi murni offline).
      */
-    private const val BUILT_IN_URL = ""
+    private const val BUILT_IN_URL = "https://swzsbuurnkjqdfrwuvqf.supabase.co"
 
     /**
      * Kunci akses (publishable key) Supabase yang ditanam oleh pembuat aplikasi.
      * Contoh: "eyJhbGciOi..." (Publishable key di Project Settings -> API).
      */
-    private const val BUILT_IN_KEY = ""
+    private const val BUILT_IN_KEY = "sb_publishable_5W1JroG8vZjvXz3Tdq043w_j2KUa3if"
 
     fun getUrl(context: Context): String {
         if (BUILT_IN_URL.isNotEmpty()) return BUILT_IN_URL

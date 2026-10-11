@@ -237,6 +237,7 @@ class ShiftRepository(context: Context) {
         kmAwal: Double,
         kmAkhir: Double
     ): Result<ShiftEntity> = withContext(Dispatchers.IO) {
+        val existing = shiftDao.getShiftByIdDirect(shiftId)
         if (unitId.trim().isEmpty()) {
             return@withContext Result.failure(IllegalArgumentException("C/N Unit tidak boleh kosong"))
         }
@@ -268,6 +269,9 @@ class ShiftRepository(context: Context) {
             totalRitase = totalRitase,
             totalFuel = totalFuel,
             status = "COMPLETED",
+            ownerId = existing?.ownerId.orEmpty(),
+            driverName = existing?.driverName.orEmpty(),
+            createdAt = existing?.createdAt ?: System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
         shiftDao.updateShift(updated)

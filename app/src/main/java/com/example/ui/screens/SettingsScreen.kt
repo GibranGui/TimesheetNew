@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
@@ -70,7 +72,6 @@ fun SettingsScreen(
     onSaveLoadingArea: (lat: Double, lng: Double, radius: Double) -> Unit,
     onCalibrateFromGpsClick: () -> Unit,
     onCheckUpdateClick: () -> Unit,
-    onSaveServerSettings: (url: String, key: String) -> Unit,
     onSyncNowClick: () -> Unit,
     onSignOutClick: () -> Unit,
     onBackClick: () -> Unit
@@ -85,8 +86,6 @@ fun SettingsScreen(
         mutableStateOf((loadingArea?.radiusMeters ?: 50.0).toString())
     }
     var saveSuccess by remember { mutableStateOf(false) }
-    var serverUrlText by remember { mutableStateOf("") }
-    var serverKeyText by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -259,10 +258,7 @@ fun SettingsScreen(
                     }
                     HorizontalDivider()
                     Text("• Semua data shift, ritase, dan bahan bakar selalu tersimpan di memori HP ini — aplikasi tetap bisa dipakai tanpa internet.", style = MaterialTheme.typography.bodyMedium)
-                    Text(if (serverConfigured)
-                        "• Cadangan online AKTIF. Data terkirim otomatis saat ada jaringan."
-                    else
-                        "• Belum ada cadangan online. Opsional: daftarkan alamat server agar data juga tersimpan di internet (berguna jika HP hilang/rusak).",
+                    Text("• Cadangan online AKTIF. Data terkirim otomatis saat ada jaringan dan hanya akun Anda yang bisa membacanya.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -274,43 +270,22 @@ fun SettingsScreen(
                         else -> {}
                     }
 
-                    if (serverConfigured) {
-                        Button(
-                            onClick = onSyncNowClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("SINKRONKAN SEKARANG", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
-                        }
-                    } else {
-                        OutlinedTextField(
-                            value = serverUrlText,
-                            onValueChange = { serverUrlText = it },
-                            label = { Text("Alamat Server (URL)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                    Button(
+                        onClick = onSyncNowClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("SINKRONKAN SEKARANG", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
                         )
-                        OutlinedTextField(
-                            value = serverKeyText,
-                            onValueChange = { serverKeyText = it },
-                            label = { Text("Kunci Akses (dari penyedia server)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Button(
-                            onClick = {
-                                if (serverUrlText.isNotBlank() && serverKeyText.isNotBlank()) {
-                                    onSaveServerSettings(serverUrlText, serverKeyText)
-                                }
-                            },
-                            enabled = serverUrlText.isNotBlank() && serverKeyText.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("AKTIFKAN CADANGAN ONLINE", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
-                        }
                         Text(
-                            text = "Pengaturan cadangan online biasanya diisi oleh kantor/pengelola armada. Jika kosong, biarkan saja — aplikasi tetap berfungsi penuh.",
+                            text = "Alamat server dikunci oleh pengelola armada. Pengaturan ini tidak dapat diubah dari aplikasi — hubungi kantor jika ada perubahan.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

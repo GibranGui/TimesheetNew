@@ -131,8 +131,11 @@ fun MainAppContent(viewModel: MainViewModel) {
     }
 
     if (!accountState.loggedIn) {
+        val driverSuggestions by viewModel.driverSuggestions.collectAsStateWithLifecycle()
         AccountScreen(
             hasAnyAccount = accountState.hasAnyAccount,
+            driverSuggestions = driverSuggestions,
+            onSearchDriverName = { q -> viewModel.searchDriverNames(q) },
             onLogin = { user, pass -> viewModel.loginAccount(user, pass) },
             onRegister = { nama, hp, user, pass, passUlang ->
                 viewModel.registerAccount(nama, hp, user, pass, passUlang)
@@ -327,9 +330,6 @@ fun MainAppContent(viewModel: MainViewModel) {
                             },
                             onCheckUpdateClick = {
                                 viewModel.checkUpdateManual()
-                            },
-                            onSaveServerSettings = { url, key ->
-                                viewModel.saveServerSettings(url, key)
                             },
                             onSyncNowClick = {
                                 viewModel.syncNow()

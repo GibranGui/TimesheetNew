@@ -32,6 +32,10 @@ class SupabaseSyncClient(private val context: Context) {
     private fun baseUrl() = RemoteConfig.getUrl(context).trimEnd('/')
     private fun key() = RemoteConfig.getKey(context)
 
+    /** Header identitas pemilik data — dipakai server untuk memfilter hak akses (RLS). */
+    private fun okhttp3.Request.Builder.withOwnerHeader(): okhttp3.Request.Builder =
+        header("X-Owner-Id", ownerId())
+
     private fun configured(): Boolean = RemoteConfig.isConfigured(context)
 
     // ---------- Pemilik data (untuk server online) ----------
@@ -106,6 +110,7 @@ class SupabaseSyncClient(private val context: Context) {
             .header("Authorization", "Bearer ${key()}")
             .header("Content-Type", "application/json")
             .header("Prefer", "resolution=merge-duplicates")
+            .withOwnerHeader()
             .post(obj.toString().toRequestBody(jsonMedia))
             .build())
     }
@@ -119,6 +124,7 @@ class SupabaseSyncClient(private val context: Context) {
             .header("Authorization", "Bearer ${key()}")
             .header("Content-Type", "application/json")
             .header("Prefer", "resolution=merge-duplicates")
+            .withOwnerHeader()
             .post(arr.toString().toRequestBody(jsonMedia))
             .build())
     }
@@ -142,6 +148,7 @@ class SupabaseSyncClient(private val context: Context) {
                 .url(url)
                 .header("apikey", key())
                 .header("Authorization", "Bearer ${key()}")
+                .withOwnerHeader()
                 .get()
                 .build()
             http.newCall(request).execute().use { resp ->

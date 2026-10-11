@@ -1,7 +1,7 @@
 -- ============================================================
--- Skema database online untuk aplikasi Timesheet Dump Truck
+-- Skema database online untuk aplikasi Timesheet Dump Truck (v2.2)
 -- Jalankan di: Supabase Dashboard -> SQL Editor -> Run
--- (atau di dashboard Postgres/PostgREST lainnya)
+-- Skrip ini aman dijalankan berulang kali (idempotent).
 -- ============================================================
 
 create table if not exists shifts (
@@ -27,6 +27,7 @@ create table if not exists shifts (
 
 create table if not exists ritase_events (
   id text primary key,
+  owner_id text not null default '',
   shift_id text not null,
   unit_id text not null,
   timestamp bigint not null default 0,
@@ -44,6 +45,7 @@ create table if not exists ritase_events (
 
 create table if not exists fuel_entries (
   id text primary key,
+  owner_id text not null default '',
   shift_id text not null,
   unit_id text not null,
   timestamp bigint not null default 0,
@@ -56,49 +58,47 @@ create table if not exists fuel_entries (
   deleted_at bigint
 );
 
-create index if not exists idx_shifts_owner on shifts (owner_id, updated_at);
+-- Kolom baru bila tabel lama sudah ada (upgrade dari skema sebelumnya)
+alter table shifts        add column if not exists owner_id    text not null default '';
+alter table shifts        add column if not exists driver_name text not null default '';
+alter table ritase_events add column if not exists owner_id    text not null default '';
+alter table fuel_entries  add column if not exists owner_id    text not null default '';
+
+create index if not exists idx_shifts_owner  on shifts (owner_id, updated_at);
 create index if not exists idx_shifts_driver on shifts (driver_name, updated_at);
-create index if not exists idx_ritase_shift on ritase_events (shift_id, updated_at);
-create index if not exists idx_fuel_shift on fuel_entries (shift_id, updated_at);
+create index if not exists idx_ritase_owner  on ritase_events (owner_id, updated_at);
+create index if not exists idx_ritase_shift  on ritase_events (shift_id, updated_at);
+create index if not exists idx_fuel_owner    on fuel_entries (owner_id, updated_at);
+create index if not exists idx_fuel_shift    on fuel_entries (shift_id, updated_at);
 
 -- ============================================================
--- Keamanan: akses data difilter dari aplikasi lewat kolom
--- owner_id (ID unik tiap perangkat/akun) dan driver_name.
--- Data driver lain tidak diambil oleh aplikasi driver lain.
+-- Keamanan (Row Level Security): setiap permintaan ke server
+-- WAJIB menyertakan header X-Owner-Id yang sama dengan kolom
+-- owner_id pada baris data. Aplikasi mengirim header ini secara
+-- otomatis, sehingga:
+--   * driver A hanya bisa membaca/menulis data miliknya sendiri;
+--   * driver lain TIDAK bisa melihat data meski tahu URL server.
 -- ============================================================
 
-alter table shifts enable row level security;
+alter table shifts        enable row level security;
 alter table ritase_events enable row level security;
-alter table fuel_entries enable row level security;
+alter table fuel_entries  enable row level security;
 
-create policy "shifts_rw" on shifts
-  for all using (true) with check (true);
+drop policy if exists "shifts_owner_rw"       on shifts;
+drop policy if exists "ritase_owner_rw"       on ritase_events;
+drop policy if exists "fuel_owner_rw"         on fuel_entries;
+drop policy if exists "shifts_rw"             on shifts;
+drop policy if exists "ritase_rw"             on ritase_events;
+drop policy if exists "fuel_rw"               on fuel_entries;
 
-create policy "ritase_rw" on ritase_events
-  for all using (true) with check (true);
+create policy "shifts_owner_rw" on shifts
+  for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
+  with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
 
-create policy "fuel_rw" on fuel_entries
-  for all using (true) with check (true);
+create policy "ritase_owner_rw" on ritase_events
+  for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
+  with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
 
--- ============================================================
--- OPSIONAL (RLS ketat): jika ingin server ikut memfilter per
--- pemilik berdasarkan header X-Owner-Id, hapus 3 policy di atas
--- lalu jalankan blok berikut:
---
--- create policy "shifts_owner_rw" on shifts
---   for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
---   with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
--- create policy "ritase_owner_rw" on ritase_events
---   for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
---   with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
--- create policy "fuel_owner_rw" on fuel_entries
---   for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
---   with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
--- ============================================================
-
--- ============================================================
--- Jika tabel lama SUDAH ada (upgrade dari skema versi sebelumnya),
--- jalankan blok di bawah ini sekali saja untuk menambah kolom baru:
--- ============================================================
-
-alter table shifts add column if not exists driver_name text not null default '';
+create policy "fuel_owner_rw" on fuel_entries
+  for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
+  with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');

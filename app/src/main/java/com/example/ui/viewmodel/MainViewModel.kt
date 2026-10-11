@@ -4,13 +4,16 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AccountManager
+import com.example.data.local.AppDatabase
 import com.example.data.local.FuelEntryEntity
 import com.example.data.local.LoadingAreaEntity
 import com.example.data.local.RitaseEntity
+import com.example.data.local.RosterEntity
 import com.example.data.local.ShiftEntity
 import com.example.data.local.UnitEntity
 import com.example.data.repository.ShiftRepository
 import com.example.data.remote.RemoteConfig
+import com.example.data.remote.RosterSyncManager
 import com.example.data.remote.SyncEngine
 import com.example.data.remote.SyncStatus
 import com.example.service.GpsTrackingService
@@ -95,6 +98,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         MutableStateFlow(RemoteConfig.isConfigured(application)).asStateFlow()
 
     private var lastPullAt: Long = 0L
+
+    // ---------- Jadwal kerja driver (Google Sheets → tersimpan lokal, tetap bisa dibaca offline) ----------
+    private val rosterSyncManager = RosterSyncManager(application)
+    private val db = AppDatabase.getInstance(application)
+
+    val rosters: StateFlow<List<RosterEntity>> = db.rosterDao().getAllRosters()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _isRosterSyncing = MutableStateFlow(false)
+    val isRosterSyncing: StateFlow<Boolean> = _isRosterSyncing.asStateFlow()
+
+    private val _rosterLastSync = MutableStateFlow(rosterSyncManager.getLastSyncTime())
+    val rosterLastSync: StateFlow<Long> = _rosterLastSync.asStateFlow()
+
+    val rosterSheetUrl: String get() = rosterSyncManager.getSavedSheetUrl()
+
+    fun saveRosterSheetUrl(url: String) {
+        rosterSyncManager.saveSheetUrl(url)
+        syncRosterNow()
+    }
+
+    fun syncRosterNow() {
+        if (_isRosterSyncing.value) return
+        viewModelScope.launch {
+            _isRosterSyncing.value = true
+            try {
+                val result = rosterSyncManager.fetchRostersFromSheets(rosterSyncManager.getSavedSheetUrl())
+                result.onSuccess { list ->
+                    val rosterDao = db.rosterDao()
+                    rosterDao.deleteAll()
+                    rosterDao.insertAll(list)
+                    _rosterLastSync.value = rosterSyncManager.getLastSyncTime()
+                    _successMessage.value = "Jadwal berhasil diperbarui (${list.size} driver)."
+                }.onFailure { err ->
+                    _uiError.value = err.message ?: "Jadwal gagal diperbarui."
+                }
+            } finally {
+                _isRosterSyncing.value = false
+            }
+        }
+    }
 
     // ---------- Akun pengguna ----------
     private val accountManager = AccountManager.getInstance(application)

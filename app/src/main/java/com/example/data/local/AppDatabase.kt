@@ -14,9 +14,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FuelEntryEntity::class,
         UnitEntity::class,
         LoadingAreaEntity::class,
-        UserAccountEntity::class
+        UserAccountEntity::class,
+        RosterEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun unitDao(): UnitDao
     abstract fun loadingAreaDao(): LoadingAreaDao
     abstract fun userAccountDao(): UserAccountDao
+    abstract fun rosterDao(): RosterDao
 
     companion object {
         @Volatile
@@ -71,6 +73,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Tabel jadwal kerja driver dari Google Sheets (v3 -> v4). Data lama tetap utuh.
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS rosters (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        driverName TEXT NOT NULL,
+                        vehicleId TEXT NOT NULL,
+                        shiftsCommaSeparated TEXT NOT NULL,
+                        updatedAt INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -78,7 +97,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "dt_timesheet_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

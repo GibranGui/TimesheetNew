@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import com.example.ui.screens.EndShiftDialog
 import com.example.ui.screens.FuelInputDialog
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.RekapanScreen
+import com.example.ui.screens.RosterScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StartShiftScreen
 import com.example.ui.theme.MiningAmber
@@ -50,6 +52,7 @@ import com.example.ui.viewmodel.MainViewModel
 enum class AppTab {
     SHIFT,
     REKAPAN,
+    JADWAL,
     PENGATURAN
 }
 
@@ -177,6 +180,21 @@ fun MainAppContent(viewModel: MainViewModel) {
                     )
 
                     NavigationBarItem(
+                        selected = currentTab == AppTab.JADWAL,
+                        onClick = { currentTab = AppTab.JADWAL },
+                        icon = {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "Jadwal")
+                        },
+                        label = { Text("Jadwal", fontWeight = FontWeight.SemiBold) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MiningAmber,
+                            selectedTextColor = MiningAmber,
+                            indicatorColor = MiningAmber.copy(alpha = 0.15f)
+                        ),
+                        modifier = Modifier.testTag("tab_jadwal")
+                    )
+
+                    NavigationBarItem(
                         selected = currentTab == AppTab.PENGATURAN,
                         onClick = { currentTab = AppTab.PENGATURAN },
                         icon = {
@@ -276,6 +294,21 @@ fun MainAppContent(viewModel: MainViewModel) {
                                     shiftId, unit, date, hmAwal, hmAkhir, kmAwal, kmAkhir
                                 )
                             }
+                        )
+                    }
+
+                    AppTab.JADWAL -> {
+                        val rosters by viewModel.rosters.collectAsStateWithLifecycle()
+                        val isRosterSyncing by viewModel.isRosterSyncing.collectAsStateWithLifecycle()
+                        val rosterLastSync by viewModel.rosterLastSync.collectAsStateWithLifecycle()
+                        RosterScreen(
+                            rosters = rosters,
+                            isSyncing = isRosterSyncing,
+                            lastSyncTime = rosterLastSync,
+                            driverName = accountState.profile?.fullName.orEmpty(),
+                            onRefreshClick = { viewModel.syncRosterNow() },
+                            onSaveSheetUrl = { url -> viewModel.saveRosterSheetUrl(url) },
+                            defaultSheetUrl = com.example.data.remote.RosterSyncManager.DEFAULT_SHEET_URL
                         )
                     }
 

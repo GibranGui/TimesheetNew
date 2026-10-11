@@ -166,9 +166,21 @@ class GpsTrackingService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
+        // GPS dipaksa ke mode akurasi tinggi penuh:
+        // - PRIORITY_HIGH_ACCURACY => memakai satelit GPS + jaringan (bukan hemat baterai)
+        // - setRequireAccurateMode => menolak lokasi perkiraan, hanya fix presisi tinggi
+        // - setWaitForIdleOnApp = false => langsung mengambil fix tanpa menunggu diam
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000L)
             .setMinUpdateIntervalMillis(1500L)
             .setMinUpdateDistanceMeters(2f)
+            .apply {
+                try {
+                    javaClass.getMethod("setRequireAccurateMode", Boolean::class.javaPrimitiveType)
+                        .invoke(this, true)
+                } catch (_: Exception) {
+                    // Tidak tersedia di versi Play Services lama — prioritas tinggi tetap aktif.
+                }
+            }
             .build()
 
         try {

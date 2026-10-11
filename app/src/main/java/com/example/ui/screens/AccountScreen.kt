@@ -17,7 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Truck
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -87,7 +87,7 @@ fun AccountScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.Truck,
+                    Icons.Default.LocalShipping,
                     contentDescription = null,
                     tint = MiningAmber,
                     modifier = Modifier.size(40.dp)

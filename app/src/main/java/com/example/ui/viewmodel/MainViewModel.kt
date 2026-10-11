@@ -3,12 +3,16 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.AccountManager
 import com.example.data.local.FuelEntryEntity
 import com.example.data.local.LoadingAreaEntity
 import com.example.data.local.RitaseEntity
 import com.example.data.local.ShiftEntity
 import com.example.data.local.UnitEntity
 import com.example.data.repository.ShiftRepository
+import com.example.data.remote.RemoteConfig
+import com.example.data.remote.SyncEngine
+import com.example.data.remote.SyncStatus
 import com.example.service.GpsTrackingService
 import com.example.service.GpsTrackingState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +85,104 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _updateInfo = MutableStateFlow(UpdateInfo())
     val updateInfo: StateFlow<UpdateInfo> = _updateInfo.asStateFlow()
+
+    // ---------- Sinkronisasi online (opsional; offline tetap penuh berfungsi) ----------
+    private val syncEngine = SyncEngine(application)
+    private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
+
+    val serverConfigured: StateFlow<Boolean> =
+        MutableStateFlow(RemoteConfig.isConfigured(application)).asStateFlow()
+
+    private var lastPullAt: Long = 0L
+
+    // ---------- Akun pengguna ----------
+    private val accountManager = AccountManager.getInstance(application)
+
+    data class AccountState(
+        val checked: Boolean = false,   // masih memeriksa sesi awal?
+        val loggedIn: Boolean = false,
+        val profile: AccountManager.Profile? = null,
+        val hasAnyAccount: Boolean = false
+    )
+
+    private val _accountState = MutableStateFlow(AccountState())
+    val accountState: StateFlow<AccountState> = _accountState.asStateFlow()
+
+    fun refreshAccountState() {
+        viewModelScope.launch {
+            val loggedIn = accountManager.isLoggedIn()
+            _accountState.value = if (loggedIn) {
+                AccountState(
+                    checked = true,
+                    loggedIn = true,
+                    profile = accountManager.currentProfile(),
+                    hasAnyAccount = accountManager.hasAnyAccount()
+                )
+            } else {
+                AccountState(
+                    checked = true,
+                    loggedIn = false,
+                    profile = null,
+                    hasAnyAccount = accountManager.hasAnyAccount()
+                )
+            }
+        }
+    }
+
+    fun registerAccount(
+        fullName: String, phone: String, username: String,
+        password: String, confirmPassword: String
+    ) {
+        viewModelScope.launch {
+            val error = accountManager.register(fullName, phone, username, password, confirmPassword)
+            if (error != null) {
+                _uiError.value = error
+            } else {
+                refreshAccountState()
+                _successMessage.value = "Akun berhasil dibuat. Selamat datang, $fullName!"
+            }
+        }
+    }
+
+    fun loginAccount(username: String, password: String) {
+        viewModelScope.launch {
+            val error = accountManager.login(username, password)
+            if (error != null) {
+                _uiError.value = error
+            } else {
+                refreshAccountState()
+                _successMessage.value = "Berhasil masuk. Data Anda siap digunakan."
+            }
+        }
+    }
+
+    fun signOutAccount() {
+        accountManager.signOut()
+        refreshAccountState()
+    }
+
+    fun saveServerSettings(url: String, key: String) {
+        RemoteConfig.save(getApplication(), url, key)
+        _successMessage.value = "Pengaturan server tersimpan. Data akan terkirim otomatis saat ada jaringan."
+        syncNow()
+    }
+
+    fun syncNow() {
+        if (!RemoteConfig.isConfigured(getApplication())) return
+        viewModelScope.launch {
+            _syncStatus.value = SyncStatus.Running("Menghubungkan ke server...")
+            val result = syncEngine.syncNow(lastPullAt)
+            _syncStatus.value = result
+            if (result is SyncStatus.Success) {
+                lastPullAt = System.currentTimeMillis()
+                _successMessage.value = when {
+                    result.pushed == 0 && result.pulled == 0 -> "Semua data sudah tersinkron."
+                    else -> "Sinkronisasi selesai (${result.pushed} data terkirim, ${result.pulled} data diperbarui)."
+                }
+            }
+        }
+    }
 
     fun clearError() {
         _uiError.value = null

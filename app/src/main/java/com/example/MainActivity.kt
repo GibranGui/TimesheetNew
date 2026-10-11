@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.screens.DashboardScreen
+import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.EditActiveShiftDialog
 import com.example.ui.screens.EndShiftDialog
 import com.example.ui.screens.FuelInputDialog
@@ -91,6 +92,13 @@ fun MainAppContent(viewModel: MainViewModel) {
     val successMessage by viewModel.successMessage.collectAsStateWithLifecycle()
     val updateInfo by viewModel.updateInfo.collectAsStateWithLifecycle()
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
+    val accountState by viewModel.accountState.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val serverConfigured by viewModel.serverConfigured.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshAccountState()
+    }
 
     var currentTab by remember { mutableStateOf(AppTab.SHIFT) }
     var showHistoryScreen by remember { mutableStateOf(false) }
@@ -112,6 +120,22 @@ fun MainAppContent(viewModel: MainViewModel) {
             snackbarHostState.showSnackbar(it)
             viewModel.clearSuccessMessage()
         }
+    }
+
+    if (!accountState.checked) {
+        // Pemeriksaan sesi singkat — tampilkan layar kosong agar tidak kedip.
+        return
+    }
+
+    if (!accountState.loggedIn) {
+        AccountScreen(
+            hasAnyAccount = accountState.hasAnyAccount,
+            onLogin = { user, pass -> viewModel.loginAccount(user, pass) },
+            onRegister = { nama, hp, user, pass, passUlang ->
+                viewModel.registerAccount(nama, hp, user, pass, passUlang)
+            }
+        )
+        return
     }
 
     Scaffold(
@@ -259,6 +283,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         SettingsScreen(
                             loadingArea = loadingArea,
                             updateInfo = updateInfo,
+                            profile = accountState.profile,
+                            serverConfigured = serverConfigured,
+                            syncStatus = syncStatus,
                             onSaveLoadingArea = { lat, lng, radius ->
                                 viewModel.updateLoadingArea(lat, lng, radius)
                             },
@@ -267,6 +294,15 @@ fun MainAppContent(viewModel: MainViewModel) {
                             },
                             onCheckUpdateClick = {
                                 viewModel.checkUpdateManual()
+                            },
+                            onSaveServerSettings = { url, key ->
+                                viewModel.saveServerSettings(url, key)
+                            },
+                            onSyncNowClick = {
+                                viewModel.syncNow()
+                            },
+                            onSignOutClick = {
+                                viewModel.signOutAccount()
                             },
                             onBackClick = { currentTab = AppTab.SHIFT }
                         )

@@ -16,6 +16,8 @@ import android.os.Looper
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
+import com.example.data.remote.RemoteConfig
+import com.example.data.remote.SyncEngine
 import com.example.data.repository.ShiftRepository
 import com.example.domain.GpsEvaluationResult
 import com.example.domain.GpsRitaseEngine
@@ -59,6 +61,7 @@ class GpsTrackingService : Service() {
     private var currentShiftId: String = ""
     private var currentUnitId: String = ""
     private var currentRitaseCount: Int = 0
+    private var lastAutoSyncAt: Long = 0L
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -202,6 +205,8 @@ class GpsTrackingService : Service() {
                 } catch (_: Exception) {
                     // Pencatatan akan dicoba kembali pada perpindahan berikutnya
                 }
+                // Kirim otomatis ke server online bila jaringan tersedia (diam-diam, tanpa mengganggu)
+                tryAutoSync()
             }
         }
 
@@ -219,6 +224,25 @@ class GpsTrackingService : Service() {
         )
 
         updateNotification(eval)
+    }
+
+    /**
+     * Kirim data ke server online secara berkala saat shift berjalan
+     * (maksimal 1x per 2 menit). Bila tidak ada jaringan, data tetap
+     * tersimpan di HP dan dicoba lagi pada ritase berikutnya.
+     */
+    private fun tryAutoSync() {
+        if (!RemoteConfig.isConfigured(applicationContext)) return
+        val now = System.currentTimeMillis()
+        if (now - lastAutoSyncAt < 2L * 60 * 1000) return
+        lastAutoSyncAt = now
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                SyncEngine(applicationContext).pushPending()
+            } catch (_: Exception) {
+                // Gagal? Tidak masalah, data aman di HP dan akan dicoba lagi nanti.
+            }
+        }
     }
 
     private fun reloadLoadingArea() {

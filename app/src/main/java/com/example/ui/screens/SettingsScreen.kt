@@ -18,8 +18,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Button
@@ -49,7 +53,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.data.local.AccountManager
 import com.example.data.local.LoadingAreaEntity
+import com.example.data.remote.SyncStatus
 import com.example.ui.theme.MiningAmber
 import com.example.ui.viewmodel.UpdateInfo
 
@@ -58,9 +64,15 @@ import com.example.ui.viewmodel.UpdateInfo
 fun SettingsScreen(
     loadingArea: LoadingAreaEntity?,
     updateInfo: UpdateInfo,
+    profile: AccountManager.Profile?,
+    serverConfigured: Boolean,
+    syncStatus: SyncStatus,
     onSaveLoadingArea: (lat: Double, lng: Double, radius: Double) -> Unit,
     onCalibrateFromGpsClick: () -> Unit,
     onCheckUpdateClick: () -> Unit,
+    onSaveServerSettings: (url: String, key: String) -> Unit,
+    onSyncNowClick: () -> Unit,
+    onSignOutClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     var latText by remember(loadingArea) {
@@ -73,6 +85,8 @@ fun SettingsScreen(
         mutableStateOf((loadingArea?.radiusMeters ?: 50.0).toString())
     }
     var saveSuccess by remember { mutableStateOf(false) }
+    var serverUrlText by remember { mutableStateOf("") }
+    var serverKeyText by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -198,20 +212,109 @@ fun SettingsScreen(
                 }
             }
 
-            // PENYIMPANAN DATA INFO
+            // AKUN SAYA
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Cloud, contentDescription = null, tint = MiningAmber)
-                        Text("Penyimpanan Data", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MiningAmber)
+                        Text("Akun Saya", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    if (profile != null) {
+                        Text("Nama: ${profile.fullName}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Nomor HP: ${profile.phone}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Nama pengguna: ${profile.username}", style = MaterialTheme.typography.bodyMedium)
+                        OutlinedButton(
+                            onClick = onSignOutClick,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Keluar dari Akun")
+                        }
+                        Text(
+                            text = "Data shift tetap tersimpan di HP ini. Untuk masuk kembali cukup gunakan nama pengguna & kata sandi Anda.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // PENYIMPANAN DATA & SINKRONISASI ONLINE
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(
+                            imageVector = if (serverConfigured) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                            contentDescription = null,
+                            tint = MiningAmber
+                        )
+                        Text("Penyimpanan & Cadangan Online", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider()
-                    Text("• Semua data shift, ritase, dan bahan bakar disimpan di memori HP ini.", style = MaterialTheme.typography.bodyMedium)
-                    Text("• Aplikasi tetap bisa digunakan tanpa kuota internet.", style = MaterialTheme.typography.bodyMedium)
-                    Text("• Data tidak dikirim ke mana pun dan tidak memerlukan akun apa pun.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Semua data shift, ritase, dan bahan bakar selalu tersimpan di memori HP ini — aplikasi tetap bisa dipakai tanpa internet.", style = MaterialTheme.typography.bodyMedium)
+                    Text(if (serverConfigured)
+                        "• Cadangan online AKTIF. Data terkirim otomatis saat ada jaringan."
+                    else
+                        "• Belum ada cadangan online. Opsional: daftarkan alamat server agar data juga tersimpan di internet (berguna jika HP hilang/rusak).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    when (syncStatus) {
+                        is SyncStatus.Running -> Text("Status: ${syncStatus.progress}…", color = MiningAmber, style = MaterialTheme.typography.bodySmall)
+                        is SyncStatus.Success -> Text("Sinkron terakhir berhasil (${syncStatus.pushed} dikirim, ${syncStatus.pulled} diperbarui).", style = MaterialTheme.typography.bodySmall)
+                        is SyncStatus.Failed -> Text("Sinkron belum berhasil: ${syncStatus.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        else -> {}
+                    }
+
+                    if (serverConfigured) {
+                        Button(
+                            onClick = onSyncNowClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("SINKRONKAN SEKARANG", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    } else {
+                        OutlinedTextField(
+                            value = serverUrlText,
+                            onValueChange = { serverUrlText = it },
+                            label = { Text("Alamat Server (URL)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = serverKeyText,
+                            onValueChange = { serverKeyText = it },
+                            label = { Text("Kunci Akses (dari penyedia server)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Button(
+                            onClick = {
+                                if (serverUrlText.isNotBlank() && serverKeyText.isNotBlank()) {
+                                    onSaveServerSettings(serverUrlText, serverKeyText)
+                                }
+                            },
+                            enabled = serverUrlText.isNotBlank() && serverKeyText.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("AKTIFKAN CADANGAN ONLINE", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                        Text(
+                            text = "Pengaturan cadangan online biasanya diisi oleh kantor/pengelola armada. Jika kosong, biarkan saja — aplikasi tetap berfungsi penuh.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -272,7 +375,7 @@ fun SettingsScreen(
                         Text("Keamanan & Privasi Data", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                     }
                     Text(
-                        text = "Aplikasi bersifat personal. Seluruh data hanya tersimpan di memori HP dan tidak menggunakan layanan pihak ketiga. Tidak perlu login dengan akun apa pun.",
+                        text = "Akun dan seluruh data pencatatan tersimpan aman di HP ini. Kata sandi dikunci sehingga tidak terbaca. Cadangan online hanya aktif jika server diatur, dan data Anda tetap menjadi milik Anda.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

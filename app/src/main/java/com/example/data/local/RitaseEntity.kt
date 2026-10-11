@@ -1,5 +1,6 @@
 package com.example.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -14,6 +15,12 @@ data class RitaseEntity(
     val latitude: Double,
     val longitude: Double,
     val accuracy: Float,
+    @ColumnInfo(name = "trigger_type")
     val trigger: String = "EXIT_LOADING",
-    val status: String = "VALID"
-)
+    val status: String = "VALID",
+    val updatedAt: Long = System.currentTimeMillis(),
+    val syncedAt: Long = 0L, // 0 = belum terkirim ke server online
+    val deletedAt: Long? = null // penanda hapus agar ikut tersinkron
+) {
+    companion object
+}

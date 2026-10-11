@@ -215,13 +215,13 @@ class ShiftRepository(context: Context) {
     }
 
     suspend fun deleteFuel(fuelId: String, shiftId: String) = withContext(Dispatchers.IO) {
-        fuelDao.deleteFuelById(fuelId)
+        fuelDao.softDeleteById(fuelId)
         val newTotalFuel = fuelDao.getTotalFuelForShift(shiftId) ?: 0.0
         shiftDao.updateTotalFuel(shiftId, newTotalFuel)
     }
 
     suspend fun deleteRitase(ritaseId: String, shiftId: String) = withContext(Dispatchers.IO) {
-        ritaseDao.deleteRitaseById(ritaseId)
+        ritaseDao.softDeleteById(ritaseId)
         val newCount = ritaseDao.countRitase(shiftId)
         shiftDao.updateRitaseCount(shiftId, newCount)
     }

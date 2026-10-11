@@ -18,6 +18,11 @@ data class ShiftEntity(
     val totalRitase: Int = 0,
     val totalFuel: Double = 0.0,
     val status: String = "ACTIVE", // "ACTIVE" | "COMPLETED"
+    val ownerId: String = "", // penanda pemilik data di server online
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
-)
+    val updatedAt: Long = System.currentTimeMillis(),
+    val syncedAt: Long = 0L, // 0 = belum terkirim ke server online
+    val deletedAt: Long? = null // penanda hapus agar ikut tersinkron
+) {
+    companion object
+}

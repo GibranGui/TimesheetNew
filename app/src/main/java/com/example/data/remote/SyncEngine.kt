@@ -25,7 +25,7 @@ sealed class SyncStatus {
  *   lain ditarik (pull). Konflik diselesaikan dengan "terakhir diperbarui menang".
  */
 class SyncEngine(
-    context: Context,
+    private val context: Context,
     private val db: AppDatabase = AppDatabase.getInstance(context)
 ) {
     private val client = SupabaseSyncClient(context)

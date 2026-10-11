@@ -1,6 +1,7 @@
 package com.example.data.remote
 
 import android.content.Context
+import com.example.data.local.AppDatabase
 import com.example.data.local.FuelEntryEntity
 import com.example.data.local.RitaseEntity
 import com.example.data.local.ShiftEntity
@@ -35,8 +36,25 @@ class SupabaseSyncClient(private val context: Context) {
 
     // ---------- Pemilik data (untuk server online) ----------
 
-    /** ID unik perangkat+akun; dipakai agar data tiap pengguna terpisah di server. */
+    /**
+     * Nama pemilik data di server, diambil dari akun yang sedang masuk (huruf besar).
+     * Dengan begitu data timesheet tiap driver tersimpan rapi atas nama driver itu
+     * dan hanya bisa dibaca kembali oleh driver dengan nama yang sama.
+     * Bila belum ada sesi (mis. aplikasi baru dibuka), dipakai cadangan ID perangkat.
+     */
     fun ownerId(): String {
+        val accountPrefs = context.applicationContext
+            .getSharedPreferences("account_session", Context.MODE_PRIVATE)
+        val username = accountPrefs.getString("active_username", null)
+        if (!username.isNullOrBlank()) {
+            val fullName = try {
+                AppDatabase.getInstance(context)
+                    .userAccountDao()
+                    .findByUsernameBlocking(username)?.fullName
+            } catch (e: Exception) { null }
+            if (!fullName.isNullOrBlank()) return fullName.trim().uppercase()
+        }
+        // Cadangan: ID perangkat (dipakai bila belum masuk akun)
         val prefs = context.applicationContext
             .getSharedPreferences("remote_settings", Context.MODE_PRIVATE)
         var id = prefs.getString("owner_id", null)
@@ -69,8 +87,8 @@ class SupabaseSyncClient(private val context: Context) {
 
     // ---------- AMBIL (pull) ----------
 
-    suspend fun pullShiftsUpdatedSince(sinceMillis: Long): Result<List<ShiftEntity>> =
-        pull("shifts", sinceMillis) { ShiftEntity.fromJson(it) }
+    suspend fun pullShiftsUpdatedSince(sinceMillis: Long, driverName: String = ""): Result<List<ShiftEntity>> =
+        pull("shifts", sinceMillis, driverName) { ShiftEntity.fromJson(it) }
 
     suspend fun pullRitaseUpdatedSince(sinceMillis: Long): Result<List<RitaseEntity>> =
         pull("ritase_events", sinceMillis) { RitaseEntity.fromJson(it) }
@@ -108,12 +126,16 @@ class SupabaseSyncClient(private val context: Context) {
     private inline fun <T> pull(
         table: String,
         sinceMillis: Long,
+        driverName: String = "",
         crossinline parse: (JSONObject) -> T?
     ): Result<List<T>> {
         if (!configured()) return Result.failure(IllegalStateException("Server online belum diatur"))
         return try {
+            val driverFilter = if (driverName.isNotEmpty())
+                "&driver_name=eq." + java.net.URLEncoder.encode(driverName, "UTF-8") else ""
             val url = "${baseUrl()}/rest/v1/$table" +
                 "?owner_id=eq.${java.net.URLEncoder.encode(ownerId(), "UTF-8")}" +
+                "$driverFilter" +
                 "&updated_at=gt.$sinceMillis" +
                 "&order=updated_at.asc&limit=500"
             val request = Request.Builder()
@@ -151,7 +173,8 @@ class SupabaseSyncClient(private val context: Context) {
 // ---------- Konversi JSON (kolom snake_case sesuai konvensi Supabase) ----------
 
 internal fun ShiftEntity.toJson() = JSONObject().apply {
-    put("id", id); put("owner_id", ownerId); put("unit_id", unitId); put("date", date)
+    put("id", id); put("owner_id", ownerId); put("driver_name", driverName)
+    put("unit_id", unitId); put("date", date)
     put("hm_awal", hmAwal); put("hm_akhir", hmAkhir)
     put("km_awal", kmAwal); put("km_akhir", kmAkhir)
     put("total_hm", totalHm); put("total_km", totalKm)
@@ -165,6 +188,7 @@ internal fun ShiftEntity.Companion.fromJson(o: JSONObject): ShiftEntity? = try {
     ShiftEntity(
         id = o.getString("id"),
         ownerId = o.optString("owner_id", ""),
+        driverName = o.optString("driver_name", ""),
         unitId = o.getString("unit_id"),
         date = o.getString("date"),
         hmAwal = o.getDouble("hm_awal"),

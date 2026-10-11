@@ -52,6 +52,21 @@ class AccountManager private constructor(private val context: Context) {
         db.userAccountDao().count() > 0
     }
 
+    /**
+     * Saran nama driver dari daftar jadwal perusahaan (Google Sheet yang pernah diunduh).
+     * Dipakai saat membuat akun baru agar penulisan nama sama persis dengan data kantor,
+     * sehingga timesheet di server langsung cocok dengan nama driver tersebut.
+     */
+    suspend fun suggestDriverNames(query: String): List<String> = withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.length < 2) return@withContext emptyList()
+        try {
+            db.driverTemplateDao().search(q).map { it.name }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     private suspend fun activeAccount(): UserAccountEntity? {
         val id = activeAccountId() ?: return null
         // Simpan juga username terakhir agar bisa diverifikasi cepat.

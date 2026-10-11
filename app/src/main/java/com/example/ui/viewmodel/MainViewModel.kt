@@ -94,8 +94,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
 
-    val serverConfigured: StateFlow<Boolean> =
-        MutableStateFlow(RemoteConfig.isConfigured(application)).asStateFlow()
+    private val _serverConfigured = MutableStateFlow(RemoteConfig.isConfigured(application))
+    val serverConfigured: StateFlow<Boolean> = _serverConfigured.asStateFlow()
 
     private var lastPullAt: Long = 0L
 
@@ -153,6 +153,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _accountState = MutableStateFlow(AccountState())
     val accountState: StateFlow<AccountState> = _accountState.asStateFlow()
 
+    private val _driverSuggestions = MutableStateFlow<List<String>>(emptyList())
+    val driverSuggestions: StateFlow<List<String>> = _driverSuggestions.asStateFlow()
+
+    /** Cari saran nama driver dari daftar jadwal perusahaan saat mengetik di form pendaftaran. */
+    fun searchDriverNames(query: String) {
+        viewModelScope.launch {
+            _driverSuggestions.value = accountManager.suggestDriverNames(query)
+        }
+    }
+
     fun refreshAccountState() {
         viewModelScope.launch {
             val loggedIn = accountManager.isLoggedIn()
@@ -207,9 +217,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveServerSettings(url: String, key: String) {
-        RemoteConfig.save(getApplication(), url, key)
-        _successMessage.value = "Pengaturan server tersimpan. Data akan terkirim otomatis saat ada jaringan."
-        syncNow()
+        if (RemoteConfig.isLocked(getApplication())) {
+            _uiError.value = "Alamat server sudah dikunci oleh pengelola aplikasi dan tidak bisa diubah dari HP ini."
+            return
+        }
+        if (RemoteConfig.save(getApplication(), url, key)) {
+            _serverConfigured.value = RemoteConfig.isConfigured(getApplication())
+            _successMessage.value = "Pengaturan server tersimpan. Data akan terkirim otomatis saat ada jaringan."
+            syncNow()
+        } else {
+            _uiError.value = "Pengaturan server tidak dapat disimpan."
+        }
     }
 
     fun syncNow() {
@@ -243,7 +261,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         kmAwal: Double
     ) {
         viewModelScope.launch {
-            val result = repository.startShift(unitId, date, hmAwal, kmAwal)
+            val driverName = accountManager.currentProfile()?.fullName.orEmpty()
+            val result = repository.startShift(unitId, date, hmAwal, kmAwal, driverName)
             result.onSuccess { shift ->
                 GpsTrackingService.start(
                     context = getApplication(),

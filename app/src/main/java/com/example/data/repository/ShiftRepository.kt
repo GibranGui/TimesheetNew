@@ -52,7 +52,8 @@ class ShiftRepository(context: Context) {
         unitId: String,
         date: String,
         hmAwal: Double,
-        kmAwal: Double
+        kmAwal: Double,
+        driverName: String = ""
     ): Result<ShiftEntity> = withContext(Dispatchers.IO) {
         val trimmedUnit = unitId.trim()
         if (trimmedUnit.isEmpty()) {
@@ -84,6 +85,7 @@ class ShiftRepository(context: Context) {
             date = date.trim(),
             hmAwal = hmAwal,
             kmAwal = kmAwal,
+            driverName = driverName.trim().uppercase(),
             status = "ACTIVE"
         )
         shiftDao.insertShift(shift)

@@ -70,10 +70,21 @@ class SyncEngine(
         }
     }
 
+    /** Nama driver pemilik sesi aktif — dipakai agar data driver lain tidak ikut ditarik. */
+    private suspend fun activeDriverName(): String {
+        val prefs = context.applicationContext
+            .getSharedPreferences("account_session", android.content.Context.MODE_PRIVATE)
+        val username = prefs.getString("active_username", null) ?: return ""
+        return db.userAccountDao().findByUsername(username)?.fullName?.trim()?.uppercase().orEmpty()
+    }
+
     suspend fun pullSince(sinceMillis: Long): Result<Int> = withContext(Dispatchers.IO) {
         if (!RemoteConfig.isConfigured(context)) return@withContext Result.success(0)
         var count = 0
-        val shifts = client.pullShiftsUpdatedSince(sinceMillis)
+        // Hanya tarik data milik driver yang sedang masuk, supaya data driver lain
+        // tidak terbaca di HP ini.
+        val driver = activeDriverName()
+        val shifts = client.pullShiftsUpdatedSince(sinceMillis, driver)
             .getOrElse { return@withContext Result.failure(it) }
         val ritases = client.pullRitaseUpdatedSince(sinceMillis)
             .getOrElse { return@withContext Result.failure(it) }

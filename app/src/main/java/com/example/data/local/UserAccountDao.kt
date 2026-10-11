@@ -15,6 +15,10 @@ interface UserAccountDao {
     @Query("SELECT * FROM user_accounts WHERE username = :username COLLATE NOCASE LIMIT 1")
     suspend fun findByUsername(username: String): UserAccountEntity?
 
+    /** Versi non-coroutine, dipakai mesin sinkronisasi saat menyiapkan nama pemilik data. */
+    @Query("SELECT * FROM user_accounts WHERE username = :username COLLATE NOCASE LIMIT 1")
+    fun findByUsernameBlocking(username: String): UserAccountEntity?
+
     @Query("SELECT COUNT(*) FROM user_accounts")
     suspend fun count(): Int
 

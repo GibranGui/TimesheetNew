@@ -66,6 +66,9 @@ fun DashboardScreen(
     ritaseList: List<RitaseEntity>,
     fuelList: List<FuelEntryEntity>,
     gpsState: GpsTrackingState,
+    monthShifts: List<ShiftEntity> = emptyList(),
+    todayRosterCode: String = "",
+    driverName: String = "",
     onAddFuelClick: () -> Unit,
     onEndShiftClick: () -> Unit,
     onOpenHistoryClick: () -> Unit,
@@ -125,6 +128,51 @@ fun DashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // RINGKASAN KERJA SAYA: total jam kerja, total ritase bulan ini, dan jadwal hari ini
+            val monthTotalHm = remember(monthShifts) { monthShifts.sumOf { it.totalHm } }
+            val monthTotalRitase = remember(monthShifts) { monthShifts.sumOf { it.totalRitase } }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        if (driverName.isNotBlank()) "Ringkasan Kerja — $driverName" else "Ringkasan Kerja Bulan Ini",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text("${"%.1f".format(monthTotalHm)}", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MiningAmber)
+                            Text("Jam Kerja (HM)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Box(Modifier.width(1.dp).height(36.dp).background(MaterialTheme.colorScheme.surfaceVariant))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text("$monthTotalRitase", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MiningGreenActive)
+                            Text("Total Ritase", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Box(Modifier.width(1.dp).height(36.dp).background(MaterialTheme.colorScheme.surfaceVariant))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (todayRosterCode.isBlank()) "-" else todayRosterCode,
+                                fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                                color = rosterCodeColor(todayRosterCode)
+                            )
+                            Text("Jadwal Hari Ini", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
             // KARTU STATUS GPS
             Card(
                 modifier = Modifier.fillMaxWidth(),

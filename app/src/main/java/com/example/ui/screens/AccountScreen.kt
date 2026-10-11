@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,8 @@ import com.example.ui.theme.MiningAmber
 @Composable
 fun AccountScreen(
     hasAnyAccount: Boolean,
+    driverSuggestions: List<String>,
+    onSearchDriverName: (String) -> Unit,
     onLogin: (username: String, password: String) -> Unit,
     onRegister: (fullName: String, phone: String, username: String, password: String, confirm: String) -> Unit
 ) {

@@ -19,6 +19,7 @@ data class ShiftEntity(
     val totalFuel: Double = 0.0,
     val status: String = "ACTIVE", // "ACTIVE" | "COMPLETED"
     val ownerId: String = "", // penanda pemilik data di server online
+    val driverName: String = "" // nama driver pemilik shift (ikut terkirim ke server)
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val syncedAt: Long = 0L, // 0 = belum terkirim ke server online

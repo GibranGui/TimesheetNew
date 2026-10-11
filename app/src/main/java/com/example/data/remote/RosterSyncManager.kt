@@ -3,6 +3,8 @@ package com.example.data.remote
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import com.example.data.local.AppDatabase
+import com.example.data.local.DriverTemplateEntity
 import com.example.data.local.RosterEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -116,6 +118,13 @@ class RosterSyncManager(private val context: Context) {
                     }
 
                     setLastSyncTime(System.currentTimeMillis())
+                    // Simpan daftar nama driver untuk saran pengisian nama saat mendaftar
+                    try {
+                        val dao = AppDatabase.getInstance(context).driverTemplateDao()
+                        dao.insertAll(parsedRosters.map {
+                            DriverTemplateEntity(name = it.driverName)
+                        })
+                    } catch (e: Exception) { /* bukan hal fatal */ }
                     Result.success(parsedRosters)
                 }
             } catch (e: Exception) {

@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         UnitEntity::class,
         LoadingAreaEntity::class,
         UserAccountEntity::class,
-        RosterEntity::class
+        RosterEntity::class,
+        DriverTemplateEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun loadingAreaDao(): LoadingAreaDao
     abstract fun userAccountDao(): UserAccountDao
     abstract fun rosterDao(): RosterDao
+    abstract fun driverTemplateDao(): DriverTemplateDao
 
     companion object {
         @Volatile
@@ -90,6 +92,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Tabel daftar nama driver (template saran saat membuat akun) (v4 -> v5). Data lama tetap utuh.
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS driver_templates (
+                        name TEXT NOT NULL PRIMARY KEY,
+                        lastSeenAt INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -97,7 +113,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "dt_timesheet_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

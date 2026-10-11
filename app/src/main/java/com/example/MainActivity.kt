@@ -380,7 +380,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                             rosters = rosters,
                             mySchedule = mySchedule,
                             driverName = myName0,
-                            vehicleId = activeShift?.unit ?: recentUnits.firstOrNull().orEmpty(),
+                            vehicleId = activeShift?.unitId ?: recentUnits.firstOrNull().orEmpty(),
                             isSyncing = isRosterSyncing,
                             lastSyncTime = rosterLastSync,
                             onRefreshClick = { viewModel.syncRosterNow() },

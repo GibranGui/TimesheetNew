@@ -61,6 +61,7 @@ import com.example.ui.theme.CodeOff
 import com.example.ui.theme.CodeOffBg
 import com.example.ui.theme.CodeOther
 import com.example.ui.theme.CodeOtherBg
+import com.example.ui.theme.EmployeePrimarySoft
 import com.example.ui.theme.EmployeeAccent
 import com.example.ui.theme.EmployeeOkGreen
 import com.example.ui.theme.EmployeePrimary
@@ -174,7 +175,7 @@ fun RosterScreen(
 
     val filtered = remember(rosters, searchQuery, unitFilter, shiftTab, todayDay) {
         rosters.filter {
-            (unitFilter == null || it.vehicleId.trim().uppercase().contains(unitFilter)) &&
+            (unitFilter == null || it.vehicleId.trim().uppercase().contains(unitFilter!!)) &&
                     (searchQuery.isBlank() ||
                             it.driverName.contains(searchQuery.trim(), ignoreCase = true) ||
                             it.vehicleId.contains(searchQuery.trim(), ignoreCase = true)) &&

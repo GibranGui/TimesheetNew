@@ -7,6 +7,7 @@
 create table if not exists shifts (
   id text primary key,
   owner_id text not null default '',
+  driver_name text not null default '',
   unit_id text not null,
   date text not null,
   hm_awal double precision not null,
@@ -56,22 +57,19 @@ create table if not exists fuel_entries (
 );
 
 create index if not exists idx_shifts_owner on shifts (owner_id, updated_at);
+create index if not exists idx_shifts_driver on shifts (driver_name, updated_at);
 create index if not exists idx_ritase_shift on ritase_events (shift_id, updated_at);
 create index if not exists idx_fuel_shift on fuel_entries (shift_id, updated_at);
 
 -- ============================================================
--- Keamanan (RLS): setiap perangkat hanya boleh mengakses baris
--- milik sendiri berdasarkan kolom owner_id.
--- Aplikasi mengirim header "X-Owner-Id" berisi ID pemilik data.
+-- Keamanan: akses data difilter dari aplikasi lewat kolom
+-- owner_id (ID unik tiap perangkat/akun) dan driver_name.
+-- Data driver lain tidak diambil oleh aplikasi driver lain.
 -- ============================================================
 
 alter table shifts enable row level security;
 alter table ritase_events enable row level security;
 alter table fuel_entries enable row level security;
-
--- Catatan: jika memakai anon key tanpa JWT, gunakan policy berikut
--- agar PostgREST mengizinkan akses dengan pencocokan owner_id lewat
--- header. Untuk produksi lebih baik pakai Supabase Auth penuh.
 
 create policy "shifts_rw" on shifts
   for all using (true) with check (true);
@@ -81,3 +79,26 @@ create policy "ritase_rw" on ritase_events
 
 create policy "fuel_rw" on fuel_entries
   for all using (true) with check (true);
+
+-- ============================================================
+-- OPSIONAL (RLS ketat): jika ingin server ikut memfilter per
+-- pemilik berdasarkan header X-Owner-Id, hapus 3 policy di atas
+-- lalu jalankan blok berikut:
+--
+-- create policy "shifts_owner_rw" on shifts
+--   for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
+--   with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
+-- create policy "ritase_owner_rw" on ritase_events
+--   for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
+--   with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
+-- create policy "fuel_owner_rw" on fuel_entries
+--   for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
+--   with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
+-- ============================================================
+
+-- ============================================================
+-- Jika tabel lama SUDAH ada (upgrade dari skema versi sebelumnya),
+-- jalankan blok di bawah ini sekali saja untuk menambah kolom baru:
+-- ============================================================
+
+alter table shifts add column if not exists driver_name text not null default '';

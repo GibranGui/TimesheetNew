@@ -143,7 +143,7 @@ fun AccountScreen(
                                 Text(if (hasDriverList)
                                     "Ketik minimal 2 huruf lalu pilih nama dari saran — hanya nama yang terdaftar di jadwal kantor yang bisa dibuatkan akun."
                                 else
-                                    "Daftar nama driver belum termuat di HP ini. Nyalakan internet sebentar, buka tab Jadwal, lalu kembali ke sini.")
+                                    "Daftar nama driver belum termuat di HP ini. Nyalakan internet sebentar, buka tab Roaster, lalu kembali ke sini.")
                             },
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),

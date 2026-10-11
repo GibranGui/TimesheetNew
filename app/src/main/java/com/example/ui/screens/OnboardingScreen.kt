@@ -76,8 +76,8 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
             ),
             OnboardPage(
                 Icons.Default.CalendarMonth, MiningAccentBlue,
-                "Jadwal Kerja & Rekapan",
-                "Buka tab Jadwal untuk melihat jadwal kerja Anda (D/N/OFF), dan tab Rekapan " +
+                "Roaster & Catat HM",
+                "Buka tab Roaster untuk melihat jadwal kerja Anda (Siang/Malam, CR, CT, I, OFF), dan tab Catat HM " +
                     "untuk melihat total jam kerja, ritase, dan BBM per bulan."
             ),
             OnboardPage(

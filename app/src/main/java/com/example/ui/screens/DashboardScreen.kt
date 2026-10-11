@@ -233,7 +233,7 @@ fun DashboardScreen(
                     }
                     if (myMonthSchedule.isEmpty()) {
                         Text(
-                            text = "Jadwal bulan ini belum tersedia. Buka tab Jadwal lalu tekan Perbarui Jadwal saat ada internet.",
+                            text = "Jadwal bulan ini belum tersedia. Buka tab Roaster lalu tekan Perbarui Jadwal saat ada internet.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

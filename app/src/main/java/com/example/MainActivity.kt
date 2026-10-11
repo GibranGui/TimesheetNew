@@ -176,9 +176,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         selected = currentTab == AppTab.REKAPAN,
                         onClick = { currentTab = AppTab.REKAPAN },
                         icon = {
-                            Icon(Icons.Default.Assessment, contentDescription = "Rekapan")
+                            Icon(Icons.Default.Assessment, contentDescription = "Catat HM")
                         },
-                        label = { Text("Rekapan", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Catat HM", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MintPrimary,
                             selectedTextColor = MintPrimary,
@@ -191,9 +191,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         selected = currentTab == AppTab.JADWAL,
                         onClick = { currentTab = AppTab.JADWAL },
                         icon = {
-                            Icon(Icons.Default.CalendarMonth, contentDescription = "Jadwal")
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "Roaster")
                         },
-                        label = { Text("Jadwal", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Roaster", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MintPrimary,
                             selectedTextColor = MintPrimary,

@@ -53,7 +53,7 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Riwayat Shift", fontWeight = FontWeight.Bold) },
+                title = { Text("Rekapan HM", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("btn_back_history")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
@@ -82,7 +82,7 @@ fun HistoryScreen(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 Text(
-                    text = "Belum Ada Riwayat Shift",
+                    text = "Belum Ada Rekapan HM",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

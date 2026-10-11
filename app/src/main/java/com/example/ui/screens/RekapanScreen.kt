@@ -86,7 +86,7 @@ fun RekapanScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(imageVector = Icons.Default.Assessment, contentDescription = null, tint = MintPrimary)
-                        Text("Rekapan Time Sheet", fontWeight = FontWeight.Bold)
+                        Text("Rekapan HM Time Sheet", fontWeight = FontWeight.Bold)
                     }
                 },
                 actions = {

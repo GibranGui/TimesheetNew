@@ -89,6 +89,48 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _updateInfo = MutableStateFlow(UpdateInfo())
     val updateInfo: StateFlow<UpdateInfo> = _updateInfo.asStateFlow()
 
+    /** True bila ada versi baru dan popup belum pernah ditampilkan hari ini. */
+    private val _showUpdateDialog = MutableStateFlow(false)
+    val showUpdateDialog: StateFlow<Boolean> = _showUpdateDialog.asStateFlow()
+
+    fun dismissUpdateDialog() {
+        _showUpdateDialog.value = false
+        try {
+            getApplication<Application>()
+                .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                .edit()
+                .putString("last_update_prompt_date", todayKey())
+                .apply()
+        } catch (_: Exception) {
+            //abaikan jika penyimpanan tidak tersedia
+        }
+    }
+
+    /**
+     * Pengecekan pembaruan otomatis saat aplikasi dibuka (maks. 1x per hari).
+     * Jika versi baru tersedia, popup akan muncul setelah pengecekan selesai.
+     */
+    fun checkUpdateOnLaunch() {
+        viewModelScope.launch {
+            val prefs = getApplication<Application>()
+                .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            val lastPrompt = prefs.getString("last_update_prompt_date", "") ?: ""
+            if (lastPrompt == todayKey()) return@launch
+
+            val before = _updateInfo.value
+            checkUpdateManual()
+            // hanya tampilkan popup bila benar-benar ada versi baru
+            if (_updateInfo.value.isAvailable && _updateInfo.value.latestVersion != before.latestVersion) {
+                _showUpdateDialog.value = true
+            } else if (_updateInfo.value.isAvailable) {
+                _showUpdateDialog.value = true
+            }
+        }
+    }
+
+    private fun todayKey(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
     // ---------- Sinkronisasi online (opsional; offline tetap penuh berfungsi) ----------
     private val syncEngine = SyncEngine(application)
     private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)

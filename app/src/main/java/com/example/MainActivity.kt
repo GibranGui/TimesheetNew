@@ -12,8 +12,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.GpsNotFixed
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -103,6 +106,135 @@ fun MainAppContent(viewModel: MainViewModel) {
 
     LaunchedEffect(Unit) {
         viewModel.refreshAccountState()
+    }
+
+    // Pengecekan pembaruan otomatis saat aplikasi dibuka (popup muncul jika ada versi baru).
+    LaunchedEffect(accountState.loggedIn) {
+        if (accountState.loggedIn) viewModel.checkUpdateOnLaunch()
+    }
+
+    val showUpdateDialog by viewModel.showUpdateDialog.collectAsStateWithLifecycle()
+    var showLocationWarning by remember { mutableStateOf(false) }
+    var showBatteryWarning by remember { mutableStateOf(false) }
+
+    // Peringatan bila layanan lokasi (GPS) di HP belum dinyalakan.
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (!com.example.util.DeviceHealthChecker.isLocationEnabled(context)) {
+                showLocationWarning = true
+            }
+            delay(15_000L)
+        }
+    }
+
+    // Arahan optimalisasi baterai: sekali saja per sesi aplikasi.
+    var batteryCheckedThisSession by remember { mutableStateOf(false) }
+    LaunchedEffect(accountState.loggedIn) {
+        if (accountState.loggedIn && !batteryCheckedThisSession) {
+            batteryCheckedThisSession = true
+            if (!com.example.util.DeviceHealthChecker.isIgnoringBatteryOptimizations(context)) {
+                showBatteryWarning = true
+            }
+        }
+    }
+
+    val activity = context as? android.app.Activity
+
+    if (showLocationWarning) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showLocationWarning = false },
+            icon = {
+                Icon(
+                    Icons.Default.GpsNotFixed,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text("Lokasi Belum Nyala") },
+            text = {
+                Text("Agar ritase dan jam kerja tercatat otomatis, nyalakan lokasi (GPS) pada HP Anda melalui pengaturan, lalu kembali ke aplikasi.")
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    activity?.let { com.example.util.DeviceHealthChecker.openLocationSettings(it) }
+                    showLocationWarning = false
+                }) { Text("Buka Pengaturan Lokasi") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showLocationWarning = false }) {
+                    Text("Nanti Saja")
+                }
+            }
+        )
+    }
+
+    if (showBatteryWarning) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showBatteryWarning = false },
+            icon = {
+                Icon(
+                    Icons.Default.BatteryAlert,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary
+                )
+            },
+            title = { Text("Hemat Baterai Bisa Menghentikan Hitungan") },
+            text = {
+                Text("Penghematan baterai HP Anda dapat menghentikan pelacakan shift saat layar mati. Agar ritase tercatat akurat, izinkan aplikasi berjalan tanpa batas hemat baterai.")
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    activity?.let { com.example.util.DeviceHealthChecker.requestIgnoreBatteryOptimizations(it) }
+                    showBatteryWarning = false
+                }) { Text("Atur Sekarang") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showBatteryWarning = false }) {
+                    Text("Nanti Saja")
+                }
+            }
+        )
+    }
+
+    if (showUpdateDialog && updateInfo.isAvailable) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.dismissUpdateDialog() },
+            icon = {
+                Icon(
+                    Icons.Default.SystemUpdate,
+                    contentDescription = null,
+                    tint = MintPrimary
+                )
+            },
+            title = { Text("Pembaruan Tersedia") },
+            text = {
+                Text(
+                    "Versi baru v${updateInfo.latestVersion} sudah tersedia.\n" +
+                            "Versi Anda sekarang v${updateInfo.currentVersion}.\n\n" +
+                            "Unduh versi terbaru agar fitur dan hitungan ritase tetap lancar."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    try {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(updateInfo.downloadUrl)
+                            )
+                        )
+                    } catch (_: Exception) {
+                        //abaikan jika browser tidak tersedia
+                    }
+                    viewModel.dismissUpdateDialog()
+                }) { Text("Unduh Sekarang") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
+                    Text("Nanti Saja")
+                }
+            }
+        )
     }
 
     var currentTab by remember { mutableStateOf(AppTab.SHIFT) }

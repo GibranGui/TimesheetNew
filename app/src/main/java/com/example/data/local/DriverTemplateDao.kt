@@ -17,6 +17,10 @@ interface DriverTemplateDao {
     @Query("SELECT COUNT(*) FROM driver_templates")
     suspend fun count(): Int
 
+    /** Cek apakah nama persis (tanpa peduli huruf besar/kecil) ada di daftar jadwal kantor. */
+    @Query("SELECT EXISTS(SELECT 1 FROM driver_templates WHERE name = :name COLLATE NOCASE)")
+    suspend fun existsExact(name: String): Boolean
+
     @Query("DELETE FROM driver_templates")
     suspend fun deleteAll()
 }

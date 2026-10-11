@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.ShapeInner
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -56,8 +58,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.data.local.UnitEntity
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.MiningSlateBg
+import com.example.ui.theme.ShapeCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -99,7 +102,7 @@ fun StartShiftScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(imageVector = Icons.Default.LocalShipping, contentDescription = null, tint = MiningAmber)
+                        Icon(imageVector = Icons.Default.LocalShipping, contentDescription = null, tint = MintPrimary)
                         Text("DT TIME SHEET", fontWeight = FontWeight.Bold)
                     }
                 },
@@ -121,6 +124,7 @@ fun StartShiftScreen(
             // Header Card
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -128,7 +132,7 @@ fun StartShiftScreen(
                         text = "Mulai Shift Baru",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MiningAmber
+                        color = MintPrimary
                     )
                     Text(
                         text = "Pastikan C/N unit, tanggal, serta HM dan KM awal sudah terisi sesuai speedometer alat.",
@@ -146,7 +150,7 @@ fun StartShiftScreen(
                     onValueChange = { unitText = it },
                     placeholder = { Text("Contoh: DT-012") },
                     leadingIcon = {
-                        Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MiningAmber)
+                        Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MintPrimary)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -167,8 +171,8 @@ fun StartShiftScreen(
                     ) {
                         recentUnits.take(4).forEach { unit ->
                             Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (unitText == unit.cn) MiningAmber else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = ShapeInner,
+                                color = if (unitText == unit.cn) MintPrimary else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.clickable { unitText = unit.cn }
                             ) {
                                 Text(
@@ -191,7 +195,7 @@ fun StartShiftScreen(
                     onValueChange = { dateText = it },
                     placeholder = { Text("DD/MM/YYYY") },
                     leadingIcon = {
-                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MiningAmber)
+                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MintPrimary)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -212,7 +216,7 @@ fun StartShiftScreen(
                         onValueChange = { hmAwalText = it },
                         placeholder = { Text("Contoh: 102") },
                         leadingIcon = {
-                            Icon(Icons.Default.Timer, contentDescription = null, tint = MiningAmber)
+                            Icon(Icons.Default.Timer, contentDescription = null, tint = MintPrimary)
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier
@@ -229,7 +233,7 @@ fun StartShiftScreen(
                         onValueChange = { kmAwalText = it },
                         placeholder = { Text("Contoh: 12450") },
                         leadingIcon = {
-                            Icon(Icons.Default.Speed, contentDescription = null, tint = MiningAmber)
+                            Icon(Icons.Default.Speed, contentDescription = null, tint = MintPrimary)
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier
@@ -303,8 +307,8 @@ fun StartShiftScreen(
                         onStartShift(unitText, dateText, hmAwal, kmAwal)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                shape = ShapeInner,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)

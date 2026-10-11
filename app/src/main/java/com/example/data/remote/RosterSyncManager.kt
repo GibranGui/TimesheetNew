@@ -39,12 +39,28 @@ class RosterSyncManager(private val context: Context) {
         }
     }
 
-    /** URL Google Sheet yang tersimpan; bawaannya adalah sheet resmi jadwal dump truck. */
-    fun getSavedSheetUrl(): String =
-        prefs.getString(KEY_URL, DEFAULT_SHEET_URL)?.trim().orEmpty().ifEmpty { DEFAULT_SHEET_URL }
+    /**
+     * URL Google Sheet resmi. Alamat dikunci oleh pengelola aplikasi sehingga
+     * tidak bisa diubah dari HP pengguna — kolom penyimpanan manual dihapus.
+     */
+    fun getSavedSheetUrl(): String = DEFAULT_SHEET_URL
 
-    fun saveSheetUrl(url: String) {
-        prefs.edit().putString(KEY_URL, url.trim()).apply()
+    /** Waktu (millis) sinkronisasi otomatis harian terakhir dilakukan. */
+    fun getLastAutoSyncDay(): Long = prefs.getLong(KEY_LAST_AUTO_DAY, 0L)
+
+    fun setLastAutoSyncDay(time: Long) {
+        prefs.edit().putLong(KEY_LAST_AUTO_DAY, time).apply()
+    }
+
+    /** True bila kalender sudah berganti hari sejak auto-sync terakhir. */
+    fun isDailySyncDue(): Boolean {
+        val last = getLastAutoSyncDay()
+        if (last == 0L) return true
+        val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
+        val lastCal = java.util.Calendar.getInstance().apply { timeInMillis = last }
+        // Perlu sync bila tanggal dalam tahun ini berbeda.
+        return lastCal.get(java.util.Calendar.YEAR) != java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) ||
+                lastCal.get(java.util.Calendar.DAY_OF_YEAR) != today
     }
 
     fun getLastSyncTime(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)
@@ -200,7 +216,7 @@ class RosterSyncManager(private val context: Context) {
         const val DEFAULT_SHEET_URL =
             "https://docs.google.com/spreadsheets/d/1Q4GRZEAMyPENYyNk7hOFHrWo0zKxNKberPKVLICI0IQ/edit"
 
-        private const val KEY_URL = "sheet_url"
         private const val KEY_LAST_SYNC = "last_sync_time"
+        private const val KEY_LAST_AUTO_DAY = "last_auto_sync_day"
     }
 }

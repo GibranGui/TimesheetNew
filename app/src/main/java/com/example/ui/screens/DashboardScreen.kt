@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.ShapeInner
+
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GpsNotFixed
@@ -53,12 +57,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.FuelEntryEntity
 import com.example.data.local.RitaseEntity
+import com.example.data.local.RosterEntity
 import com.example.data.local.ShiftEntity
 import com.example.domain.GpsState
 import com.example.service.GpsTrackingState
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.GradientHero
+import com.example.ui.theme.LimeOk
+import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.MiningGreenActive
 import com.example.ui.theme.MiningRedAlert
+import com.example.ui.theme.ShapeCard
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+
+/** Ringkasan jadwal satu hari untuk kartu kalender di dashboard. */
+data class DaySchedule(val day: Int, val code: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +84,7 @@ fun DashboardScreen(
     monthShifts: List<ShiftEntity> = emptyList(),
     todayRosterCode: String = "",
     driverName: String = "",
+    myMonthSchedule: List<DaySchedule> = emptyList(),
     onAddFuelClick: () -> Unit,
     onEndShiftClick: () -> Unit,
     onOpenHistoryClick: () -> Unit,
@@ -88,24 +103,50 @@ fun DashboardScreen(
         fuelList.sumOf { it.liter }
     }
 
+    // Nama bulan berjalan (kalender saat ini) — dipakai untuk judul ringkasan & jadwal
+    val currentMonthLabel = remember {
+        SimpleDateFormat("MMMM yyyy", Locale("id", "ID")).format(Calendar.getInstance().time)
+    }
+    val todayDay = remember { Calendar.getInstance().get(Calendar.DAY_OF_MONTH) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.LocalShipping, contentDescription = null, tint = MiningAmber)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MintPrimary.copy(alpha = 0.14f), RoundedCornerShape(14.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalShipping,
+                                contentDescription = null,
+                                tint = MintPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                         Column {
-                            Text(shift.unitId, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                            Text(shift.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                if (driverName.isNotBlank()) driverName else shift.unitId,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "${shift.unitId} • ${shift.date}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 },
                 actions = {
                     IconButton(onClick = onEditShiftClick, modifier = Modifier.testTag("btn_edit_active_shift")) {
-                        Icon(Icons.Default.Edit, contentDescription = "Ubah Data Shift", tint = MiningAmber)
+                        Icon(Icons.Default.Edit, contentDescription = "Ubah Data Shift", tint = MintPrimary)
                     }
                     IconButton(onClick = onOpenHistoryClick, modifier = Modifier.testTag("btn_menu_history")) {
                         Icon(Icons.Default.History, contentDescription = "Riwayat")
@@ -115,7 +156,7 @@ fun DashboardScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
@@ -129,56 +170,115 @@ fun DashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // RINGKASAN KERJA SAYA: total jam kerja, total ritase bulan ini, dan jadwal hari ini
+            // RINGKASAN KERJA SAYA: total jam kerja, total ritase bulan berjalan, dan jadwal hari ini
             val monthTotalHm = remember(monthShifts) { monthShifts.sumOf { it.totalHm } }
             val monthTotalRitase = remember(monthShifts) { monthShifts.sumOf { it.totalRitase } }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+            GradientHero(modifier = Modifier.fillMaxWidth()) {
+                Column {
                     Text(
-                        if (driverName.isNotBlank()) "Ringkasan Kerja — $driverName" else "Ringkasan Kerja Bulan Ini",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        if (driverName.isNotBlank()) "HALO, $driverName 👋" else "RINGKASAN KERJA SAYA",
+                        fontSize = 11.sp,
+                        letterSpacing = 1.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.75f),
                     )
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        currentMonthLabel.uppercase(),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                    )
+                    Spacer(Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                            Text("${"%.1f".format(monthTotalHm)}", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MiningAmber)
-                            Text("Jam Kerja (HM)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
+                            Text("${"%.1f".format(monthTotalHm)}", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Jam Kerja (HM)", fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f))
                         }
-                        Box(Modifier.width(1.dp).height(36.dp).background(MaterialTheme.colorScheme.surfaceVariant))
+                        Box(Modifier.width(1.dp).height(40.dp).background(Color.White.copy(alpha = 0.25f)))
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                            Text("$monthTotalRitase", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MiningGreenActive)
-                            Text("Total Ritase", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("$monthTotalRitase", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = LimeOk)
+                            Text("Total Ritase", fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f))
                         }
-                        Box(Modifier.width(1.dp).height(36.dp).background(MaterialTheme.colorScheme.surfaceVariant))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                        Box(Modifier.width(1.dp).height(40.dp).background(Color.White.copy(alpha = 0.25f)))
+                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                             Text(
                                 text = if (todayRosterCode.isBlank()) "-" else todayRosterCode,
-                                fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                                color = when (todayRosterCode.trim().uppercase()) {
-                                    "D" -> MiningGreenActive
-                                    "N" -> Color(0xFF7B1FA2)
-                                    "OFF" -> Color(0xFF546E7A)
-                                    "CR" -> Color(0xFFEF6C00)
-                                    "CTD" -> Color(0xFFAD1457)
-                                    "CTN" -> Color(0xFF00838F)
-                                    "I" -> MiningRedAlert
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
+                                fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White,
                             )
-                            Text("Jadwal Hari Ini", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Jadwal Hari Ini", fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f))
                         }
+                    }
+                }
+            }
+
+            // JADWAL KERJA BULAN INI (mengikuti kalender bulan berjalan)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MintPrimary)
+                        Text(
+                            text = "Jadwal Kerja $currentMonthLabel",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (myMonthSchedule.isEmpty()) {
+                        Text(
+                            text = "Jadwal bulan ini belum tersedia. Buka tab Jadwal lalu tekan Perbarui Jadwal saat ada internet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            myMonthSchedule.forEach { day ->
+                                val isToday = day.day == todayDay
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(width = 34.dp, height = 44.dp)
+                                            .background(
+                                                if (isToday) MintPrimary.copy(alpha = 0.16f) else Color.Transparent,
+                                                RoundedCornerShape(10.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                "${day.day}",
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium,
+                                                color = if (isToday) MintPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                day.code.ifBlank { "-" },
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = shiftColor(day.code)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Text(
+                            text = "D = hari • N = malam • OFF = libur • CR = perbaikan • CT = tunggu • I = insiden",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -186,6 +286,7 @@ fun DashboardScreen(
             // KARTU STATUS GPS
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -225,7 +326,7 @@ fun DashboardScreen(
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MiningAmber
+                        color = MintPrimary
                     )
                     Text(
                         text = gpsState.statusMessage,
@@ -245,12 +346,13 @@ fun DashboardScreen(
             // TITIK LOADING
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(12.dp)
+                shape = ShapeInner
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Place, contentDescription = null, tint = MiningAmber)
+                        Icon(Icons.Default.Place, contentDescription = null, tint = MintPrimary)
                         Text(
                             text = "Titik Area Muat",
                             fontWeight = FontWeight.Bold,
@@ -264,8 +366,8 @@ fun DashboardScreen(
                     )
                     Button(
                         onClick = onCalibrateLoadingAreaClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                        shape = ShapeInner,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
@@ -285,6 +387,7 @@ fun DashboardScreen(
             // KARTU RITASE HARI INI
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
@@ -306,7 +409,7 @@ fun DashboardScreen(
                         text = "${ritaseList.size}",
                         fontSize = 58.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = MiningAmber
+                        color = MintPrimary
                     )
                     Text(
                         text = "Dihitung otomatis oleh GPS saat alat keluar dari area muat",
@@ -319,6 +422,7 @@ fun DashboardScreen(
             // RINCIAN RITASE PER JAM
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -352,12 +456,12 @@ fun DashboardScreen(
                                 )
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = MiningAmber.copy(alpha = 0.2f)
+                                    color = MintPrimary.copy(alpha = 0.2f)
                                 ) {
                                     Text(
                                         text = "${item.count} rit",
                                         fontWeight = FontWeight.Bold,
-                                        color = MiningAmber,
+                                        color = MintPrimary,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
@@ -382,6 +486,7 @@ fun DashboardScreen(
             // BAHAN BAKAR & RINGKASAN
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -399,7 +504,7 @@ fun DashboardScreen(
                             text = "Total: ${totalFuel.toInt()} L",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MiningAmber
+                            color = MintPrimary
                         )
                     }
                     HorizontalDivider()
@@ -431,7 +536,7 @@ fun DashboardScreen(
                                     Text(
                                         text = "${fuel.liter.toInt()} L",
                                         fontWeight = FontWeight.Bold,
-                                        color = MiningAmber
+                                        color = MintPrimary
                                     )
                                     IconButton(
                                         onClick = { onDeleteFuelClick(fuel.id) },
@@ -486,13 +591,13 @@ fun DashboardScreen(
                 Button(
                     onClick = onAddFuelClick,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = ShapeInner,
                     modifier = Modifier
                         .weight(1f)
                         .height(54.dp)
                         .testTag("btn_tambah_fuel")
                 ) {
-                    Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = MiningAmber)
+                    Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = MintPrimary)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "ISI BBM",
@@ -503,8 +608,8 @@ fun DashboardScreen(
 
                 Button(
                     onClick = onEndShiftClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                    shape = ShapeInner,
                     modifier = Modifier
                         .weight(1f)
                         .height(54.dp)

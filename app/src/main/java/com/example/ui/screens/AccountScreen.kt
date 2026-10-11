@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.ShapeInner
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -43,7 +45,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
 
 /**
  * Layar pembuka aplikasi: masuk atau membuat akun.
@@ -53,6 +55,7 @@ import com.example.ui.theme.MiningAmber
 fun AccountScreen(
     hasAnyAccount: Boolean,
     driverSuggestions: List<String>,
+    hasDriverList: Boolean,
     onSearchDriverName: (String) -> Unit,
     onLogin: (username: String, password: String) -> Unit,
     onRegister: (fullName: String, phone: String, username: String, password: String, confirm: String) -> Unit
@@ -87,13 +90,13 @@ fun AccountScreen(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(MiningAmber.copy(alpha = 0.15f), RoundedCornerShape(20.dp)),
+                    .background(MintPrimary.copy(alpha = 0.15f), ShapeInner),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.LocalShipping,
                     contentDescription = null,
-                    tint = MiningAmber,
+                    tint = MintPrimary,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -117,7 +120,7 @@ fun AccountScreen(
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = ShapeInner,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 )
@@ -135,9 +138,12 @@ fun AccountScreen(
                                 fullName = it
                                 onSearchDriverName(it)
                             },
-                            label = { Text("Nama lengkap (sesuai jadwal kantor)") },
+                            label = { Text("Nama lengkap (harus sama dengan di jadwal kerja)") },
                             supportingText = {
-                                Text("Ketik minimal 2 huruf — nama akan dicocokkan dengan daftar driver di jadwal kerja.")
+                                Text(if (hasDriverList)
+                                    "Ketik minimal 2 huruf lalu pilih nama dari saran — hanya nama yang terdaftar di jadwal kantor yang bisa dibuatkan akun."
+                                else
+                                    "Daftar nama driver belum termuat di HP ini. Nyalakan internet sebentar, buka tab Jadwal, lalu kembali ke sini.")
                             },
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -231,8 +237,8 @@ fun AccountScreen(
                             }
                         },
                         enabled = canSubmit,
-                        colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                        shape = ShapeInner,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
@@ -253,7 +259,7 @@ fun AccountScreen(
                             Text(
                                 text = if (isRegisterMode) "Sudah punya akun? Masuk di sini"
                                 else "Belum punya akun? Buat baru",
-                                color = MiningAmber,
+                                color = MintPrimary,
                                 fontSize = 13.sp
                             )
                         }

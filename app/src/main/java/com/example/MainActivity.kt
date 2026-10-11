@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
@@ -45,7 +46,7 @@ import com.example.ui.screens.RekapanScreen
 import com.example.ui.screens.RosterScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StartShiftScreen
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.MainViewModel
 
@@ -98,6 +99,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     val accountState by viewModel.accountState.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val serverConfigured by viewModel.serverConfigured.collectAsStateWithLifecycle()
+    val rosters by viewModel.rosters.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.refreshAccountState()
@@ -132,9 +134,11 @@ fun MainAppContent(viewModel: MainViewModel) {
 
     if (!accountState.loggedIn) {
         val driverSuggestions by viewModel.driverSuggestions.collectAsStateWithLifecycle()
+        val hasDriverList by viewModel.hasDriverList.collectAsStateWithLifecycle()
         AccountScreen(
             hasAnyAccount = accountState.hasAnyAccount,
             driverSuggestions = driverSuggestions,
+            hasDriverList = hasDriverList,
             onSearchDriverName = { q -> viewModel.searchDriverNames(q) },
             onLogin = { user, pass -> viewModel.loginAccount(user, pass) },
             onRegister = { nama, hp, user, pass, passUlang ->
@@ -150,6 +154,7 @@ fun MainAppContent(viewModel: MainViewModel) {
             if (!showHistoryScreen) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp,
                     modifier = Modifier.testTag("bottom_nav_bar")
                 ) {
                     NavigationBarItem(
@@ -160,9 +165,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         },
                         label = { Text("Shift", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MiningAmber,
-                            selectedTextColor = MiningAmber,
-                            indicatorColor = MiningAmber.copy(alpha = 0.15f)
+                            selectedIconColor = MintPrimary,
+                            selectedTextColor = MintPrimary,
+                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
                         ),
                         modifier = Modifier.testTag("tab_shift")
                     )
@@ -175,9 +180,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         },
                         label = { Text("Rekapan", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MiningAmber,
-                            selectedTextColor = MiningAmber,
-                            indicatorColor = MiningAmber.copy(alpha = 0.15f)
+                            selectedIconColor = MintPrimary,
+                            selectedTextColor = MintPrimary,
+                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
                         ),
                         modifier = Modifier.testTag("tab_rekapan")
                     )
@@ -190,9 +195,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         },
                         label = { Text("Jadwal", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MiningAmber,
-                            selectedTextColor = MiningAmber,
-                            indicatorColor = MiningAmber.copy(alpha = 0.15f)
+                            selectedIconColor = MintPrimary,
+                            selectedTextColor = MintPrimary,
+                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
                         ),
                         modifier = Modifier.testTag("tab_jadwal")
                     )
@@ -205,9 +210,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         },
                         label = { Text("Pengaturan", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MiningAmber,
-                            selectedTextColor = MiningAmber,
-                            indicatorColor = MiningAmber.copy(alpha = 0.15f)
+                            selectedIconColor = MintPrimary,
+                            selectedTextColor = MintPrimary,
+                            indicatorColor = MintPrimary.copy(alpha = 0.16f)
                         ),
                         modifier = Modifier.testTag("tab_settings")
                     )
@@ -235,11 +240,30 @@ fun MainAppContent(viewModel: MainViewModel) {
                             )
                         } else {
                             val currentShift = activeShift!!
+                            // Ringkasan bulan berjalan + jadwal sebulan driver yang login
+                            val calNow = java.util.Calendar.getInstance()
+                            val ymNow = String.format(
+                                java.util.Locale.US, "%04d-%02d",
+                                calNow.get(java.util.Calendar.YEAR),
+                                calNow.get(java.util.Calendar.MONTH) + 1
+                            )
+                            val monthShiftsNow = completedShifts.filter { it.date.endsWith(ymNow) }
+                            val myName = accountState.profile?.fullName.orEmpty()
+                            val daysInMonthNow = calNow.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
+                            val mySchedule = remember(rosters, myName, ymNow) {
+                                (1..daysInMonthNow).map { d ->
+                                    com.example.ui.screens.DaySchedule(d, viewModel.rosterCodeForDay(myName, d))
+                                }
+                            }
                             DashboardScreen(
                                 shift = currentShift,
                                 ritaseList = ritaseList,
                                 fuelList = fuelList,
                                 gpsState = gpsState,
+                                monthShifts = monthShiftsNow,
+                                todayRosterCode = viewModel.rosterCodeForDay(myName, calNow.get(java.util.Calendar.DAY_OF_MONTH)),
+                                driverName = myName,
+                                myMonthSchedule = mySchedule,
                                 onAddFuelClick = { showFuelDialog = true },
                                 onEndShiftClick = { showEndShiftDialog = true },
                                 onOpenHistoryClick = { showHistoryScreen = true },
@@ -301,7 +325,6 @@ fun MainAppContent(viewModel: MainViewModel) {
                     }
 
                     AppTab.JADWAL -> {
-                        val rosters by viewModel.rosters.collectAsStateWithLifecycle()
                         val isRosterSyncing by viewModel.isRosterSyncing.collectAsStateWithLifecycle()
                         val rosterLastSync by viewModel.rosterLastSync.collectAsStateWithLifecycle()
                         RosterScreen(
@@ -309,9 +332,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                             isSyncing = isRosterSyncing,
                             lastSyncTime = rosterLastSync,
                             driverName = accountState.profile?.fullName.orEmpty(),
-                            onRefreshClick = { viewModel.syncRosterNow() },
-                            onSaveSheetUrl = { url -> viewModel.saveRosterSheetUrl(url) },
-                            defaultSheetUrl = com.example.data.remote.RosterSyncManager.DEFAULT_SHEET_URL
+                            onRefreshClick = { viewModel.syncRosterNow() }
                         )
                     }
 

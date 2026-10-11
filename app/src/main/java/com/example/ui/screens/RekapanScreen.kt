@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.ShapeInner
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -57,8 +59,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ShiftEntity
 import com.example.ui.theme.MiningAccentBlue
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.MiningGreenActive
+import com.example.ui.theme.ShapeCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +85,7 @@ fun RekapanScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(imageVector = Icons.Default.Assessment, contentDescription = null, tint = MiningAmber)
+                        Icon(imageVector = Icons.Default.Assessment, contentDescription = null, tint = MintPrimary)
                         Text("Rekapan Time Sheet", fontWeight = FontWeight.Bold)
                     }
                 },
@@ -112,6 +115,7 @@ fun RekapanScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = ShapeCard,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
@@ -122,17 +126,17 @@ fun RekapanScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MiningAmber)
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MintPrimary)
                             Text("Periode Aktif:", fontWeight = FontWeight.SemiBold)
                         }
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MiningAmber.copy(alpha = 0.2f)
+                            shape = ShapeInner,
+                            color = MintPrimary.copy(alpha = 0.2f)
                         ) {
                             Text(
                                 text = "Oktober 2026 ($selectedMonth)",
                                 fontWeight = FontWeight.Bold,
-                                color = MiningAmber,
+                                color = MintPrimary,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
@@ -144,6 +148,7 @@ fun RekapanScreen(
             item {
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = ShapeCard,
                     colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -151,7 +156,7 @@ fun RekapanScreen(
                             text = "TOTAL AKUMULASI BULAN INI",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MiningAmber
+                            color = MintPrimary
                         )
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -166,7 +171,7 @@ fun RekapanScreen(
                                 value = "$totalRitase",
                                 unit = "rit",
                                 modifier = Modifier.weight(1f),
-                                highlightColor = MiningAmber
+                                highlightColor = MintPrimary
                             )
                         }
 
@@ -219,6 +224,7 @@ fun RekapanScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
+                        shape = ShapeCard,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
@@ -323,7 +329,7 @@ fun ShiftTableRowCard(
                     text = "${shift.date} • ${shift.unitId}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MiningAmber
+                    color = MintPrimary
                 )
                 Surface(
                     shape = RoundedCornerShape(6.dp),
@@ -346,16 +352,16 @@ fun ShiftTableRowCard(
                 Column {
                     Text("HM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${shift.hmAwal} → ${shift.hmAkhir ?: '-'}", style = MaterialTheme.typography.bodySmall)
-                    Text("Total: ${String.format("%.1f", shift.totalHm)}", fontWeight = FontWeight.Bold, color = MiningAmber)
+                    Text("Total: ${String.format("%.1f", shift.totalHm)}", fontWeight = FontWeight.Bold, color = MintPrimary)
                 }
                 Column {
                     Text("KM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${shift.kmAwal.toInt()} → ${shift.kmAkhir?.toInt() ?: '-'}", style = MaterialTheme.typography.bodySmall)
-                    Text("Total: ${shift.totalKm.toInt()}", fontWeight = FontWeight.Bold, color = MiningAmber)
+                    Text("Total: ${shift.totalKm.toInt()}", fontWeight = FontWeight.Bold, color = MintPrimary)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("RITASE & FUEL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${shift.totalRitase} Rit", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MiningAmber)
+                    Text("${shift.totalRitase} Rit", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MintPrimary)
                     Text("${shift.totalFuel.toInt()} Liter", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -401,7 +407,7 @@ fun ShiftDetailPopup(
         confirmButton = {
             Button(
                 onClick = onEditClick,
-                colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
                 modifier = Modifier.testTag("btn_popup_edit_shift")
             ) {
                 Text("KOREKSI DATA", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)

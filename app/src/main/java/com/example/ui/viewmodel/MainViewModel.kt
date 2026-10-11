@@ -114,9 +114,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val rosterSheetUrl: String get() = rosterSyncManager.getSavedSheetUrl()
 
-    fun saveRosterSheetUrl(url: String) {
-        rosterSyncManager.saveSheetUrl(url)
-        syncRosterNow()
+    /**
+     * Ambil kode jadwal untuk satu hari kalender (1..31) dari baris roster driver tertentu.
+     * Mengembalikan string kosong bila tidak ada data.
+     */
+    fun rosterCodeForDay(driverName: String, dayOfMonth: Int): String {
+        if (driverName.isBlank()) return ""
+        val row = rosters.value.firstOrNull {
+            it.driverName.trim().equals(driverName.trim(), ignoreCase = true)
+        } ?: return ""
+        return row.getShiftsList().getOrElse(dayOfMonth - 1) { "" }.trim()
+    }
+
+    init {
+        // Ambil jadwal terbaru otomatis setiap hari saat aplikasi dibuka.
+        autoSyncRosterDaily()
+    }
+
+    /**
+     * Sinkronisasi otomatis harian: setiap kali aplikasi dibuka, jadwal kerja
+     * diambil ulang dari Google Sheet bila kalender sudah berganti hari.
+     * Gagal ambil data (offline) tidak masalah — jadwal terakhir tetap tersimpan di HP.
+     */
+    private fun autoSyncRosterDaily() {
+        if (!rosterSyncManager.isDailySyncDue()) return
+        if (_isRosterSyncing.value) return
+        viewModelScope.launch {
+            _isRosterSyncing.value = true
+            try {
+                val result = rosterSyncManager.fetchRostersFromSheets(rosterSyncManager.getSavedSheetUrl())
+                result.onSuccess { list ->
+                    val rosterDao = db.rosterDao()
+                    rosterDao.deleteAll()
+                    rosterDao.insertAll(list)
+                    rosterSyncManager.setLastAutoSyncDay(System.currentTimeMillis())
+                    _rosterLastSync.value = rosterSyncManager.getLastSyncTime()
+                }.onFailure { /* diam-diam saja; pengguna tetap bisa menekan tombol perbarui */ }
+            } finally {
+                _isRosterSyncing.value = false
+            }
+        }
     }
 
     fun syncRosterNow() {
@@ -129,6 +166,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val rosterDao = db.rosterDao()
                     rosterDao.deleteAll()
                     rosterDao.insertAll(list)
+                    rosterSyncManager.setLastAutoSyncDay(System.currentTimeMillis())
                     _rosterLastSync.value = rosterSyncManager.getLastSyncTime()
                     _successMessage.value = "Jadwal berhasil diperbarui (${list.size} driver)."
                 }.onFailure { err ->
@@ -156,15 +194,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _driverSuggestions = MutableStateFlow<List<String>>(emptyList())
     val driverSuggestions: StateFlow<List<String>> = _driverSuggestions.asStateFlow()
 
+    private val _hasDriverList = MutableStateFlow(false)
+    val hasDriverList: StateFlow<Boolean> = _hasDriverList.asStateFlow()
+
     /** Cari saran nama driver dari daftar jadwal perusahaan saat mengetik di form pendaftaran. */
     fun searchDriverNames(query: String) {
         viewModelScope.launch {
             _driverSuggestions.value = accountManager.suggestDriverNames(query)
+            _hasDriverList.value = accountManager.hasDriverList()
         }
     }
 
     fun refreshAccountState() {
         viewModelScope.launch {
+            _hasDriverList.value = accountManager.hasDriverList()
             val loggedIn = accountManager.isLoggedIn()
             _accountState.value = if (loggedIn) {
                 AccountState(

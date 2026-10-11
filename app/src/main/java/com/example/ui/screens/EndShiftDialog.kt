@@ -35,8 +35,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ShiftEntity
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.MiningGreenActive
+import com.example.ui.theme.ShapeCard
 
 @Composable
 fun EndShiftDialog(
@@ -85,6 +86,7 @@ fun EndShiftDialog(
                 // Info Awal
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = ShapeCard,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
@@ -135,6 +137,7 @@ fun EndShiftDialog(
                 // Ringkasan Total
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = ShapeCard,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(
@@ -151,7 +154,7 @@ fun EndShiftDialog(
                             Text(
                                 String.format("%.1f", totalHm),
                                 fontWeight = FontWeight.Bold,
-                                color = MiningAmber
+                                color = MintPrimary
                             )
                         }
                         Row(
@@ -162,7 +165,7 @@ fun EndShiftDialog(
                             Text(
                                 String.format("%.1f", totalKm),
                                 fontWeight = FontWeight.Bold,
-                                color = MiningAmber
+                                color = MintPrimary
                             )
                         }
                         Row(
@@ -212,7 +215,7 @@ fun EndShiftDialog(
                     }
                     onConfirm(hmAkhirVal, kmAkhirVal)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
                 modifier = Modifier.testTag("btn_simpan_selesai")
             ) {
                 Text("SIMPAN & SELESAI", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)

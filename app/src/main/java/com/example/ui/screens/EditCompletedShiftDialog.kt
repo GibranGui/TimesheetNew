@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ShiftEntity
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
 
 @Composable
 fun EditCompletedShiftDialog(
@@ -46,7 +46,7 @@ fun EditCompletedShiftDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.Edit, contentDescription = null, tint = MiningAmber)
+                Icon(Icons.Default.Edit, contentDescription = null, tint = MintPrimary)
                 Text("Koreksi Data Shift Selesai", fontWeight = FontWeight.Bold)
             }
         },
@@ -142,7 +142,7 @@ fun EditCompletedShiftDialog(
 
                     onConfirm(unitText, dateText, hmAwal, hmAkhir, kmAwal, kmAkhir)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
                 modifier = Modifier.testTag("btn_save_comp_shift")
             ) {
                 Text("SIMPAN KOREKSI", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)

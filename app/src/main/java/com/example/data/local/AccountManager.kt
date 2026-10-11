@@ -67,6 +67,11 @@ class AccountManager private constructor(private val context: Context) {
         }
     }
 
+    /** True bila daftar nama driver dari jadwal kantor sudah tersimpan di HP ini. */
+    suspend fun hasDriverList(): Boolean = withContext(Dispatchers.IO) {
+        try { db.driverTemplateDao().count() > 0 } catch (e: Exception) { false }
+    }
+
     private suspend fun activeAccount(): UserAccountEntity? {
         val id = activeAccountId() ?: return null
         // Simpan juga username terakhir agar bisa diverifikasi cepat.
@@ -97,6 +102,17 @@ class AccountManager private constructor(private val context: Context) {
             return@withContext "Nama pengguna tidak boleh mengandung spasi."
         if (password.length < 4) return@withContext "Kata sandi minimal 4 karakter."
         if (password != confirmPassword) return@withContext "Kata sandi keduanya berbeda, cek lagi ya."
+
+        // Nama wajib sama dengan driver yang tercantum di jadwal kerja kantor (Google Sheet).
+        val templateDao = db.driverTemplateDao()
+        val rosterLoaded = try { templateDao.count() > 0 } catch (e: Exception) { false }
+        if (!rosterLoaded) {
+            return@withContext "Daftar nama jadwal kerja belum ada di HP ini. Buka aplikasi saat ada koneksi internet agar daftar driver termuat, lalu daftar lagi."
+        }
+        val nameMatches = try { templateDao.existsExact(name) } catch (e: Exception) { false }
+        if (!nameMatches) {
+            return@withContext "Nama \"$name\" tidak terdaftar di jadwal kerja kantor. Pilih nama dari saran di bawah kolom nama, atau tulis persis seperti di jadwal."
+        }
 
         val dao = db.userAccountDao()
         if (dao.findByUsername(user) != null)

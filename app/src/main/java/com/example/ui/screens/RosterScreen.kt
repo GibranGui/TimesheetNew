@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.ShapeInner
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +51,7 @@ import java.util.Calendar
 import java.util.Locale
 
 /** Kode shift yang dikenal jadwal. Huruf pertama dipakai sebagai warna penanda. */
-private fun shiftColor(code: String): Color = when (code) {
+internal fun shiftColor(code: String): Color = when (code) {
     "D" -> Color(0xFF2E7D32)      // Hari kerja (green)
     "N" -> Color(0xFF6A1B9A)      // Malam (purple)
     "OFF" -> Color(0xFF455A64)    // Libur (gray-blue)
@@ -60,6 +62,19 @@ private fun shiftColor(code: String): Color = when (code) {
     else -> Color(0xFF9E9E9E)
 }
 
+/** Label ramah pengguna untuk kode shift pada jadwal. */
+internal fun shiftLabel(code: String): String = when (code) {
+    "D" -> "Hari kerja"
+    "N" -> "Kerja malam"
+    "OFF" -> "Libur"
+    "CR" -> "Perbaikan"
+    "CTD" -> "Tunggu siang"
+    "CTN" -> "Tunggu malam"
+    "I" -> "Insiden"
+    "" -> "Belum ada jadwal"
+    else -> code
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,13 +83,9 @@ fun RosterScreen(
     isSyncing: Boolean,
     lastSyncTime: Long,
     driverName: String,
-    onRefreshClick: () -> Unit,
-    onSaveSheetUrl: (String) -> Unit,
-    defaultSheetUrl: String
+    onRefreshClick: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var showUrlEditor by remember { mutableStateOf(false) }
-    var urlInput by remember { mutableStateOf(defaultSheetUrl) }
 
     val calendar = remember { Calendar.getInstance() }
     val daysInMonth = remember { calendar.getActualMaximum(Calendar.DAY_OF_MONTH) }
@@ -131,44 +142,6 @@ fun RosterScreen(
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.width(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Perbarui Jadwal")
-                }
-            }
-            OutlinedButton(onClick = { showUrlEditor = !showUrlEditor }) {
-                Text("Alamat Sheet")
-            }
-        }
-
-        if (showUrlEditor) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        "Alamat Google Sheet jadwal",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = urlInput,
-                        onValueChange = { urlInput = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        placeholder = { Text("https://docs.google.com/spreadsheets/d/...") }
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = {
-                            onSaveSheetUrl(urlInput)
-                            showUrlEditor = false
-                        }) { Text("Simpan") }
-                        OutlinedButton(onClick = {
-                            urlInput = defaultSheetUrl
-                            onSaveSheetUrl(defaultSheetUrl)
-                            showUrlEditor = false
-                        }) { Text("Pakai Bawaan") }
-                    }
                 }
             }
         }
@@ -243,7 +216,7 @@ private fun RosterRow(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = ShapeInner,
         colors = CardDefaults.cardColors(
             containerColor = if (highlightSelf)
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)

@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.ShapeInner
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -58,7 +60,8 @@ import androidx.compose.ui.unit.dp
 import com.example.data.local.AccountManager
 import com.example.data.local.LoadingAreaEntity
 import com.example.data.remote.SyncStatus
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
+import com.example.ui.theme.ShapeCard
 import com.example.ui.viewmodel.UpdateInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -114,11 +117,12 @@ fun SettingsScreen(
             // KONFIGURASI LOADING AREA & RADIUS
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.GpsFixed, contentDescription = null, tint = MiningAmber)
+                        Icon(Icons.Default.GpsFixed, contentDescription = null, tint = MintPrimary)
                         Text("Konfigurasi Loading Area", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Text(
@@ -141,7 +145,7 @@ fun SettingsScreen(
                     // 1x KLIK AMBIL KOORDINAT DARI GPS SAAT INI
                     Button(
                         onClick = onCalibrateFromGpsClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -192,7 +196,7 @@ fun SettingsScreen(
                             onSaveLoadingArea(lat, lng, rad)
                             saveSuccess = true
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("btn_simpan_area_settings")
@@ -203,7 +207,7 @@ fun SettingsScreen(
                     if (saveSuccess) {
                         Text(
                             text = "✓ Koordinat & radius berhasil disimpan!",
-                            color = MiningAmber,
+                            color = MintPrimary,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -214,11 +218,12 @@ fun SettingsScreen(
             // AKUN SAYA
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = MiningAmber)
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MintPrimary)
                         Text("Akun Saya", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     if (profile != null) {
@@ -245,6 +250,7 @@ fun SettingsScreen(
             // PENYIMPANAN DATA & SINKRONISASI ONLINE
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -252,7 +258,7 @@ fun SettingsScreen(
                         Icon(
                             imageVector = if (serverConfigured) Icons.Default.CloudDone else Icons.Default.CloudOff,
                             contentDescription = null,
-                            tint = MiningAmber
+                            tint = MintPrimary
                         )
                         Text("Penyimpanan & Cadangan Online", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
@@ -264,7 +270,7 @@ fun SettingsScreen(
                     )
 
                     when (syncStatus) {
-                        is SyncStatus.Running -> Text("Status: ${syncStatus.progress}…", color = MiningAmber, style = MaterialTheme.typography.bodySmall)
+                        is SyncStatus.Running -> Text("Status: ${syncStatus.progress}…", color = MintPrimary, style = MaterialTheme.typography.bodySmall)
                         is SyncStatus.Success -> Text("Sinkron terakhir berhasil (${syncStatus.pushed} dikirim, ${syncStatus.pulled} diperbarui).", style = MaterialTheme.typography.bodySmall)
                         is SyncStatus.Failed -> Text("Sinkron belum berhasil: ${syncStatus.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         else -> {}
@@ -272,7 +278,7 @@ fun SettingsScreen(
 
                     Button(
                         onClick = onSyncNowClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
+                        colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("SINKRONKAN SEKARANG", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
@@ -296,12 +302,13 @@ fun SettingsScreen(
             // GITHUB RELEASES & UPDATER
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 val context = LocalContext.current
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MiningAmber)
+                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MintPrimary)
                         Text("Pembaruan Aplikasi (GitHub Releases)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Text("Versi Terpasang: v${updateInfo.currentVersion}", fontWeight = FontWeight.Medium)
@@ -310,7 +317,7 @@ fun SettingsScreen(
                         Text(
                             text = updateInfo.message,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (updateInfo.isAvailable) MiningAmber else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (updateInfo.isAvailable) MintPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -329,8 +336,8 @@ fun SettingsScreen(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo.downloadUrl))
                                 context.startActivity(intent)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                            shape = ShapeInner,
                             modifier = Modifier.fillMaxWidth().height(48.dp)
                         ) {
                             Text("UNDUH & INSTALL PEMBARUAN", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
@@ -342,6 +349,7 @@ fun SettingsScreen(
             // SECURITY POLICY INFO
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = ShapeCard,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

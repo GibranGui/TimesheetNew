@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.ShapeInner
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,7 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import com.example.ui.theme.MiningAmber
+import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.MiningAccentBlue
 import com.example.ui.theme.MiningGreenActive
 
@@ -61,7 +63,7 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
     val pages = remember {
         listOf(
             OnboardPage(
-                Icons.Default.LocalShipping, MiningAmber,
+                Icons.Default.LocalShipping, MintPrimary,
                 "Catat Shift Harian",
                 "Tekan \"Mulai Shift\" di awal kerja, isi unit dan jam mesin. " +
                     "Saat selesai kerja, tekan \"Akhiri Shift\". Semua tercatat otomatis."
@@ -79,7 +81,7 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
                     "untuk melihat total jam kerja, ritase, dan BBM per bulan."
             ),
             OnboardPage(
-                Icons.Default.BatterySaver, MiningAmber,
+                Icons.Default.BatterySaver, MintPrimary,
                 "Tetap Jalan Tanpa Kuota",
                 "Aplikasi bisa dipakai sepenuhnya tanpa internet. Saat ada sinyal, catatan Anda " +
                     "otomatis tersimpan juga ke server pusat atas nama Anda — aman jika HP hilang atau rusak."
@@ -168,7 +170,7 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
                         modifier = Modifier
                             .size(if (i == pagerState.currentPage) 10.dp else 7.dp)
                             .background(
-                                if (i == pagerState.currentPage) MiningAmber
+                                if (i == pagerState.currentPage) MintPrimary
                                 else MaterialTheme.colorScheme.surfaceVariant,
                                 CircleShape
                             )
@@ -186,8 +188,8 @@ fun OnboardingScreen(onSkip: () -> Unit, onFinished: () -> Unit) {
                         onFinished()
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MiningAmber),
-                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MintPrimary),
+                shape = ShapeInner,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)

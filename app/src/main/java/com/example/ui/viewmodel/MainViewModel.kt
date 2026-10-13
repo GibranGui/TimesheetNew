@@ -251,6 +251,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _hasDriverList = MutableStateFlow(false)
     val hasDriverList: StateFlow<Boolean> = _hasDriverList.asStateFlow()
 
+    /** Daftar akun yang pernah dibuat di HP ini — untuk pemilih akun / multi-akun (§8). */
+    private val _savedAccounts = MutableStateFlow<List<AccountManager.SavedAccount>>(emptyList())
+    val savedAccounts: StateFlow<List<AccountManager.SavedAccount>> = _savedAccounts.asStateFlow()
+
+    /** Pilih akun lain yang sudah terdaftar (isi kata sandi tetap required saat login). */
+    fun useSavedAccount(accountId: String) {
+        viewModelScope.launch {
+            val error = accountManager.switchAccount(accountId)
+            if (error != null) _uiError.value = error else refreshAccountState()
+        }
+    }
+
     /** Cari saran nama driver dari daftar jadwal perusahaan saat mengetik di form pendaftaran. */
     fun searchDriverNames(query: String) {
         viewModelScope.launch {
@@ -262,6 +274,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshAccountState() {
         viewModelScope.launch {
             _hasDriverList.value = accountManager.hasDriverList()
+            _savedAccounts.value = accountManager.savedAccounts()
             val loggedIn = accountManager.isLoggedIn()
             _accountState.value = if (loggedIn) {
                 AccountState(
@@ -282,11 +295,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun registerAccount(
-        fullName: String, phone: String, username: String,
+        fullName: String, phone: String,
         password: String, confirmPassword: String
     ) {
         viewModelScope.launch {
-            val error = accountManager.register(fullName, phone, username, password, confirmPassword)
+            val error = accountManager.register(fullName, phone, password, confirmPassword)
             if (error != null) {
                 _uiError.value = error
             } else {
@@ -296,9 +309,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loginAccount(username: String, password: String) {
+    /** Login dengan Nama Driver + kata sandi (§8 — tanpa email/username terpisah). */
+    fun loginAccount(driverName: String, password: String) {
         viewModelScope.launch {
-            val error = accountManager.login(username, password)
+            val error = accountManager.login(driverName, password)
             if (error != null) {
                 _uiError.value = error
             } else {

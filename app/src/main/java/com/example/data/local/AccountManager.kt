@@ -9,13 +9,13 @@ import java.util.UUID
 /**
  * Pengelola akun pengguna.
  *
- * Pendaftaran cukup dengan nama, nomor HP, username, dan kata sandi.
+ * Pendaftaran cukup dengan Nama Driver (sesuai jadwal kerja) + kata sandi (§8 — tanpa email/username).
  * Semua tersimpan aman di HP ini saja; kata sandi sudah dikunci (di-hash)
  * sehingga tidak terbaca walau HP diperiksa orang lain.
  */
 class AccountManager private constructor(private val context: Context) {
 
-    data class Profile(val fullName: String, val phone: String, val username: String)
+    data class Profile(val fullName: String, val phone: String)
 
     private val db by lazy { AppDatabase.getInstance(context) }
 
@@ -45,7 +45,7 @@ class AccountManager private constructor(private val context: Context) {
     /** Profil pemilik sesi saat ini; null jika belum masuk. */
     suspend fun currentProfile(): Profile? = withContext(Dispatchers.IO) {
         val account = activeAccount() ?: return@withContext null
-        Profile(account.fullName, account.phone, account.username)
+        Profile(account.fullName, account.phone)
     }
 
     suspend fun hasAnyAccount(): Boolean = withContext(Dispatchers.IO) {
@@ -72,6 +72,27 @@ class AccountManager private constructor(private val context: Context) {
         try { db.driverTemplateDao().count() > 0 } catch (e: Exception) { false }
     }
 
+    /**
+     * Akun-akun yang pernah dibuat di HP ini (untuk pemilih akun / multi-akun §8 —
+     * 1 unit = 2 driver beda shift, satu HP bisa dipakai bergantian).
+     */
+    data class SavedAccount(val id: String, val fullName: String)
+
+    suspend fun savedAccounts(): List<SavedAccount> = withContext(Dispatchers.IO) {
+        try {
+            db.userAccountDao().getAll().map { SavedAccount(it.id, it.fullName) }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    /** Pindah sesi ke akun lain yang sudah terdaftar di HP ini (tanpa kata sandi baru,
+     * pengguna tetap diminta memasukkan sandi saat memilih lewat layar login). */
+    suspend fun switchAccount(accountId: String): String? = withContext(Dispatchers.IO) {
+        val acc = try { db.userAccountDao().getAll().firstOrNull { it.id == accountId } }
+                  catch (e: Exception) { null } ?: return@withContext "Akun tidak ditemukan."
+        startSession(acc)
+        null
+    }
+
     private suspend fun activeAccount(): UserAccountEntity? {
         val id = activeAccountId() ?: return null
         // Simpan juga username terakhir agar bisa diverifikasi cepat.
@@ -81,25 +102,23 @@ class AccountManager private constructor(private val context: Context) {
     }
 
     /**
-     * Mendaftarkan akun baru.
+     * Mendaftarkan akun baru (§8: TANPA email — cukup Nama Driver + Password).
+     * Nama harus sama persis dengan driver yang terdaftar di Google Sheet jadwal;
+     * begitu berhasil, Nama + Password (di-hash) langsung tersimpan dan sesi dimulai.
      * @return null jika berhasil, atau pesan kesalahan berbahasa awam.
      */
     suspend fun register(
         fullName: String,
         phone: String,
-        username: String,
         password: String,
         confirmPassword: String
     ): String? = withContext(Dispatchers.IO) {
-        val name = fullName.trim()
+        val name = fullName.trim().replace(Regex("\\s+"), " ")
         val cleanPhone = phone.trim()
-        val user = username.trim()
         if (name.length < 3) return@withContext "Nama minimal 3 huruf ya."
-        if (cleanPhone.filter { it.isDigit() }.length < 8)
-            return@withContext "Nomor HP belum benar. Tulis nomor aktif minimal 8 angka."
-        if (user.length < 4) return@withContext "Nama pengguna minimal 4 huruf/angka."
-        if (user.any { it.isWhitespace() })
-            return@withContext "Nama pengguna tidak boleh mengandung spasi."
+        if (phone.isNotEmpty() && cleanPhone.filter { it.isDigit() }.isNotEmpty() &&
+            cleanPhone.filter { it.isDigit() }.length < 8
+        ) return@withContext "Nomor HP belum benar. Tulis nomor aktif minimal 8 angka atau kosongkan."
         if (password.length < 4) return@withContext "Kata sandi minimal 4 karakter."
         if (password != confirmPassword) return@withContext "Kata sandi keduanya berbeda, cek lagi ya."
 
@@ -115,35 +134,44 @@ class AccountManager private constructor(private val context: Context) {
         }
 
         val dao = db.userAccountDao()
-        if (dao.findByUsername(user) != null)
-            return@withContext "Nama pengguna \"$user\" sudah dipakai. Pilih nama lain."
+        // Kunci login = nama driver (dicocokkan tanpa memperhatikan besar/kecil huruf).
+        val existingAccounts = try { dao.getAll() } catch (e: Exception) { emptyList() }
+        if (existingAccounts.any { it.fullName.equals(name, ignoreCase = true) }) {
+            return@withContext "Nama \"$name\" sudah terdaftar. Silakan login dengan kata sandi Anda."
+        }
 
         val salt = UUID.randomUUID().toString()
         val account = UserAccountEntity(
             id = UUID.randomUUID().toString(),
             fullName = name,
             phone = cleanPhone,
-            username = user,
+            username = name,
             salt = salt,
             passwordHash = sha256(salt + password)
         )
         try {
             dao.insert(account)
         } catch (e: Exception) {
-            return@withContext "Nama pengguna sudah dipakai. Coba nama lain."
+            return@withContext "Nama sudah terdaftar. Silakan login."
         }
         startSession(account)
         null
     }
 
     /**
-     * Memasukkan akun dengan username & kata sandi.
+     * Login dengan Nama Driver + kata sandi (§8).
+     * Aplikasi WAJIB memvalidasi apakah akun sudah terdaftar atau belum:
+     * - belum mendaftar → minta user mendaftar dulu;
+     * - sudah mendaftar tapi sandi salah → tolak;
+     * - cocok → langsung masuk.
      * @return null jika berhasil, atau pesan kesalahan berbahasa awam.
      */
-    suspend fun login(username: String, password: String): String? =
+    suspend fun login(driverName: String, password: String): String? =
         withContext(Dispatchers.IO) {
-            val account = db.userAccountDao().findByUsername(username.trim())
-                ?: return@withContext "Nama pengguna tidak ditemukan. Yakin sudah terdaftar?"
+            val name = driverName.trim().replace(Regex("\\s+"), " ")
+            if (name.isBlank()) return@withContext "Nama driver tidak boleh kosong."
+            val account = db.userAccountDao().findByUsername(name)
+                ?: return@withContext "Akun \"$name\" belum terdaftar. Silakan daftar dulu."
             if (account.passwordHash != sha256(account.salt + password))
                 return@withContext "Kata sandi salah. Coba lagi ya."
             db.userAccountDao().touchLogin(account.id, System.currentTimeMillis())

@@ -2,7 +2,6 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -16,6 +15,7 @@ import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.GpsNotFixed
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -44,21 +44,21 @@ import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.EditActiveShiftDialog
 import com.example.ui.screens.EndShiftDialog
 import com.example.ui.screens.FuelInputDialog
-import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.RekapanScreen
+import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.RosterScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StartShiftScreen
-import com.example.ui.theme.EmployeeAccent
 import com.example.ui.theme.EmployeePrimary
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.MainViewModel
 
 enum class AppTab {
-    ROASTER,   // menu utama: jadwal kerja sebulan (terpisah dari timesheet)
-    SHIFT,     // catat shift aktif (timesheet)
-    REKAPAN,   // rekapan HM
-    PENGATURAN
+    ROASTER,   // Jadwal Kerja: daftar harian seluruh unit, 1 hari terpilih (§6)
+    SHIFT,     // Catat HM: shift aktif / mulai shift (timesheet)
+    REKAPAN,   // Rekapan HM bulan berjalan
+    PROFIL,    // Akun driver yang login (§2 — label sesuai isi)
+    PENGATURAN // Pengaturan teknis (§2 — label sesuai isi)
 }
 
 class MainActivity : ComponentActivity() {
@@ -104,6 +104,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val serverConfigured by viewModel.serverConfigured.collectAsStateWithLifecycle()
     val rosters by viewModel.rosters.collectAsStateWithLifecycle()
+    val savedAccountsList by viewModel.savedAccounts.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.refreshAccountState()
@@ -239,7 +240,6 @@ fun MainAppContent(viewModel: MainViewModel) {
     }
 
     var currentTab by remember { mutableStateOf(AppTab.ROASTER) }
-    var showHistoryScreen by remember { mutableStateOf(false) }
     var showFuelDialog by remember { mutableStateOf(false) }
     var showEndShiftDialog by remember { mutableStateOf(false) }
     var showEditActiveShiftDialog by remember { mutableStateOf(false) }
@@ -268,14 +268,16 @@ fun MainAppContent(viewModel: MainViewModel) {
     if (!accountState.loggedIn) {
         val driverSuggestions by viewModel.driverSuggestions.collectAsStateWithLifecycle()
         val hasDriverList by viewModel.hasDriverList.collectAsStateWithLifecycle()
+        val savedAccounts by viewModel.savedAccounts.collectAsStateWithLifecycle()
         AccountScreen(
             hasAnyAccount = accountState.hasAnyAccount,
+            savedAccounts = savedAccounts,
             driverSuggestions = driverSuggestions,
             hasDriverList = hasDriverList,
             onSearchDriverName = { q -> viewModel.searchDriverNames(q) },
-            onLogin = { user, pass -> viewModel.loginAccount(user, pass) },
-            onRegister = { nama, hp, user, pass, passUlang ->
-                viewModel.registerAccount(nama, hp, user, pass, passUlang)
+            onLogin = { nama, pass -> viewModel.loginAccount(nama, pass) },
+            onRegister = { nama, hp, pass, passUlang ->
+                viewModel.registerAccount(nama, hp, pass, passUlang)
             }
         )
         return
@@ -284,8 +286,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            if (!showHistoryScreen) {
-                NavigationBar(
+            NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 0.dp,
                     modifier = Modifier.testTag("bottom_nav_bar")
@@ -295,13 +296,13 @@ fun MainAppContent(viewModel: MainViewModel) {
                         selected = currentTab == AppTab.ROASTER,
                         onClick = { currentTab = AppTab.ROASTER },
                         icon = {
-                            Icon(Icons.Default.CalendarMonth, contentDescription = "Roaster")
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "Jadwal")
                         },
-                        label = { Text("Roaster", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Jadwal", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = EmployeeAccent,
-                            selectedTextColor = EmployeeAccent,
-                            indicatorColor = EmployeeAccent.copy(alpha = 0.16f)
+                            selectedIconColor = EmployeePrimary,
+                            selectedTextColor = EmployeePrimary,
+                            indicatorColor = EmployeePrimary.copy(alpha = 0.14f)
                         ),
                         modifier = Modifier.testTag("tab_roaster")
                     )
@@ -337,12 +338,27 @@ fun MainAppContent(viewModel: MainViewModel) {
                     )
 
                     NavigationBarItem(
+                        selected = currentTab == AppTab.PROFIL,
+                        onClick = { currentTab = AppTab.PROFIL },
+                        icon = {
+                            Icon(Icons.Default.Person, contentDescription = "Profil")
+                        },
+                        label = { Text("Profil", fontWeight = FontWeight.SemiBold) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = EmployeePrimary,
+                            selectedTextColor = EmployeePrimary,
+                            indicatorColor = EmployeePrimary.copy(alpha = 0.14f)
+                        ),
+                        modifier = Modifier.testTag("tab_profil")
+                    )
+
+                    NavigationBarItem(
                         selected = currentTab == AppTab.PENGATURAN,
                         onClick = { currentTab = AppTab.PENGATURAN },
                         icon = {
                             Icon(Icons.Default.Tune, contentDescription = "Pengaturan")
                         },
-                        label = { Text("Akun", fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Pengaturan", fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EmployeePrimary,
                             selectedTextColor = EmployeePrimary,
@@ -350,20 +366,11 @@ fun MainAppContent(viewModel: MainViewModel) {
                         ),
                         modifier = Modifier.testTag("tab_settings")
                     )
-                }
-            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
-            if (showHistoryScreen) {
-                BackHandler { showHistoryScreen = false }
-                HistoryScreen(
-                    completedShifts = completedShifts,
-                    onBackClick = { showHistoryScreen = false }
-                )
-            } else {
-                when (currentTab) {
+            when (currentTab) {
                     AppTab.ROASTER -> {
                         // Menu utama: jadwal kerja driver yang login, format kalender sebulan.
                         val isRosterSyncing by viewModel.isRosterSyncing.collectAsStateWithLifecycle()
@@ -431,7 +438,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                                 myMonthSchedule = mySchedule,
                                 onAddFuelClick = { showFuelDialog = true },
                                 onEndShiftClick = { showEndShiftDialog = true },
-                                onOpenHistoryClick = { showHistoryScreen = true },
+                                onOpenHistoryClick = { currentTab = AppTab.REKAPAN },
                                 onOpenSettingsClick = { currentTab = AppTab.PENGATURAN },
                                 onCalibrateLoadingAreaClick = { viewModel.calibrateLoadingAreaFromCurrentLocation() },
                                 onEditShiftClick = { showEditActiveShiftDialog = true },
@@ -489,6 +496,15 @@ fun MainAppContent(viewModel: MainViewModel) {
                         )
                     }
 
+                    AppTab.PROFIL -> {
+                        ProfileScreen(
+                            profile = accountState.profile,
+                            savedAccounts = savedAccountsList,
+                            onSwitchAccount = { accountId -> viewModel.useSavedAccount(accountId) },
+                            onSignOutClick = { viewModel.signOutAccount() }
+                        )
+                    }
+
                     AppTab.PENGATURAN -> {
                         SettingsScreen(
                             loadingArea = loadingArea,
@@ -511,7 +527,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                             onSignOutClick = {
                                 viewModel.signOutAccount()
                             },
-                            onBackClick = { currentTab = AppTab.SHIFT }
+                            onBackClick = { currentTab = AppTab.ROASTER }
                         )
                     }
                 }

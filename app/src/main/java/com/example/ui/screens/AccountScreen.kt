@@ -48,31 +48,34 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.EmployeePrimary
 
 /**
- * Layar pembuka aplikasi: masuk atau membuat akun.
- * Bahasa sengaja dibuat sederhana agar mudah dipahami semua pengguna.
+ * Layar pembuka aplikasi: masuk atau membuat akun (§8 — TANPA email).
+ * Login/daftar cukup dengan **Nama Driver** (harus sama dengan yang terdaftar
+ * di Google Sheet jadwal) + **Kata sandi**. Multi-akun didukung lewat pemilih
+ * akun, karena 1 unit = 2 driver beda shift dan satu HP bisa dipakai bergantian.
  */
 @Composable
 fun AccountScreen(
     hasAnyAccount: Boolean,
+    savedAccounts: List<com.example.data.local.AccountManager.SavedAccount>,
     driverSuggestions: List<String>,
     hasDriverList: Boolean,
     onSearchDriverName: (String) -> Unit,
-    onLogin: (username: String, password: String) -> Unit,
-    onRegister: (fullName: String, phone: String, username: String, password: String, confirm: String) -> Unit
+    onLogin: (driverName: String, password: String) -> Unit,
+    onRegister: (fullName: String, phone: String, password: String, confirm: String) -> Unit
 ) {
     var isRegisterMode by remember { mutableStateOf(!hasAnyAccount) }
 
+    // Nama yang sedang diketik dipisah per mode agar form login & daftar tidak saling mengotori.
+    var regName by remember { mutableStateOf("") }
     var fullName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
 
     val canSubmit = if (isRegisterMode) {
-        fullName.isNotBlank() && phone.isNotBlank() &&
-            username.isNotBlank() && password.isNotBlank() && confirm.isNotBlank()
+        regName.isNotBlank() && password.isNotBlank() && confirm.isNotBlank()
     } else {
-        username.isNotBlank() && password.isNotBlank()
+        fullName.isNotBlank() && password.isNotBlank()
     }
 
     Box(
@@ -134,9 +137,9 @@ fun AccountScreen(
                 ) {
                     if (isRegisterMode) {
                         OutlinedTextField(
-                            value = fullName,
+                            value = regName,
                             onValueChange = {
-                                fullName = it
+                                regName = it
                                 onSearchDriverName(it)
                             },
                             label = { Text("Nama lengkap (harus sama dengan di jadwal kerja)") },
@@ -152,8 +155,8 @@ fun AccountScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         // Saran nama driver dari jadwal kerja (Google Sheet yang sudah tersimpan di HP)
-                        if (driverSuggestions.isNotEmpty() && fullName.trim().length >= 2 &&
-                            !driverSuggestions.any { it.equals(fullName.trim(), ignoreCase = true) }
+                        if (driverSuggestions.isNotEmpty() && regName.trim().length >= 2 &&
+                            !driverSuggestions.any { it.equals(regName.trim(), ignoreCase = true) }
                         ) {
                             Column(
                                 modifier = Modifier
@@ -171,7 +174,7 @@ fun AccountScreen(
                                     modifier = Modifier.horizontalScroll(rememberScrollState())
                                 ) {
                                     driverSuggestions.take(6).forEach { name ->
-                                        OutlinedButton(onClick = { fullName = name }) {
+                                        OutlinedButton(onClick = { regName = name }) {
                                             Text(name, fontSize = 12.sp, maxLines = 1)
                                         }
                                     }
@@ -191,17 +194,18 @@ fun AccountScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("Nama pengguna") },
-                        supportingText = {
-                            if (isRegisterMode) Text("Pilih nama pendek tanpa spasi, contoh: supir.budi")
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (!isRegisterMode) {
+                        // Login: Nama Driver saja (§8 — tanpa email/username terpisah)
+                        OutlinedTextField(
+                            value = fullName,
+                            onValueChange = { fullName = it },
+                            label = { Text("Nama Driver (sesuai jadwal kerja)") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -231,10 +235,10 @@ fun AccountScreen(
                     Button(
                         onClick = {
                             if (isRegisterMode) {
-                                onRegister(fullName, "+62${phone.filter { it.isDigit() }}",
-                                    username, password, confirm)
+                                onRegister(regName, "+62${phone.filter { it.isDigit() }}",
+                                    password, confirm)
                             } else {
-                                onLogin(username, password)
+                                onLogin(fullName, password)
                             }
                         },
                         enabled = canSubmit,
@@ -263,6 +267,26 @@ fun AccountScreen(
                                 color = EmployeePrimary,
                                 fontSize = 13.sp
                             )
+                        }
+                    }
+
+                    // Pemilih akun tersimpan (§8 — multi-akun, satu HP bisa dipakai bergantian)
+                    if (!isRegisterMode && savedAccounts.size > 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Akun yang pernah login di HP ini:",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                        ) {
+                            savedAccounts.forEach { acc ->
+                                OutlinedButton(onClick = { fullName = acc.driverName }) {
+                                    Text(acc.driverName, fontSize = 12.sp, maxLines = 1)
+                                }
+                            }
                         }
                     }
                 }

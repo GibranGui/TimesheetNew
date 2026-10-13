@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,8 +52,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.RosterEntity
+import com.example.ui.theme.CodeCtd
+import com.example.ui.theme.CodeCtdBg
+import com.example.ui.theme.CodeCtn
+import com.example.ui.theme.CodeCtnBg
 import com.example.ui.theme.CodeDay
 import com.example.ui.theme.CodeDayBg
+import com.example.ui.theme.CodeInduction
+import com.example.ui.theme.CodeInductionBg
 import com.example.ui.theme.CodeLeave
 import com.example.ui.theme.CodeLeaveBg
 import com.example.ui.theme.CodeNight
@@ -72,13 +79,15 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-/** Warna penanda kode jadwal — gaya aplikasi roaster armada. */
+/** Warna penanda kode jadwal — legenda §5 (D, N, CR, CTD, CTN, OFF, I). */
 internal fun shiftColor(code: String): Color = when (code) {
     "D" -> CodeDay
     "N" -> CodeNight
     "OFF" -> CodeOff
-    "CR", "CT", "CTD", "I" -> CodeLeave
-    "CTN" -> CodeNight
+    "CR" -> CodeLeave
+    "CTD" -> CodeCtd          // cuti tahunan siang — warna cuti, bukan D murni
+    "CTN" -> CodeCtn          // cuti tahunan malam — warna cuti, bukan N murni
+    "I" -> CodeInduction      // induksi — identitas sendiri, bukan cuti
     "" -> CodeOther
     else -> CodeOther
 }
@@ -88,8 +97,10 @@ internal fun shiftSoftBg(code: String): Color = when (code) {
     "D" -> CodeDayBg
     "N" -> CodeNightBg
     "OFF" -> CodeOffBg
-    "CR", "CT", "CTD", "I" -> CodeLeaveBg
-    "CTN" -> CodeNightBg
+    "CR" -> CodeLeaveBg
+    "CTD" -> CodeCtdBg
+    "CTN" -> CodeCtnBg
+    "I" -> CodeInductionBg
     else -> CodeOtherBg
 }
 
@@ -99,7 +110,6 @@ internal fun shiftLabel(code: String): String = when (code) {
     "N" -> "Malam"
     "OFF" -> "Libur"
     "CR" -> "Cuti roster"
-    "CT" -> "Cuti tahunan"
     "CTD" -> "Cuti tahunan (siang)"
     "CTN" -> "Cuti tahunan (malam)"
     "I" -> "Induksi"
@@ -107,8 +117,12 @@ internal fun shiftLabel(code: String): String = when (code) {
     else -> code
 }
 
-/** Status yang membuat unit tidak punya driver pada satu shift. */
-private val ABSENT_CODES = setOf("CR", "CT", "CTD", "CTN", "I", "OFF")
+/** Status yang membuat unit tidak punya driver pada satu shift (libur/kosong). */
+private val ABSENT_CODES = setOf("CR", "CTD", "CTN", "I", "OFF")
+
+/** Urutan prioritas tampilan (§6): semua status libur di paling atas, lalu D, lalu N. */
+private val ABSENT_PRIORITY = mapOf("CR" to 0, "CTD" to 1, "CTN" to 2, "I" to 3, "OFF" to 4)
+private fun absentRank(code: String): Int = ABSENT_PRIORITY[code] ?: 9
 
 /** Kelompokkan baris sheet menjadi pasangan dua driver per unit.
  *  Driver dengan unit "SPARE" tidak dipasangkan dengan siapa pun. */
@@ -125,11 +139,11 @@ private fun buildUnitPairs(rosters: List<RosterEntity>, daysInMonth: Int): List<
     }.sortedBy { it.vehicleId }
 }
 
-/** Deteksi unit kosong untuk tab [shift] ("D" siang atau "N" malam). */
-private fun emptyUnitsForShift(pairs: List<UnitPair>, shift: String, todayDay: Int): List<Pair<String, String>> {
+/** Deteksi unit kosong untuk tab [shift] ("D" siang atau "N" malam) pada satu hari. */
+private fun emptyUnitsForShift(pairs: List<UnitPair>, shift: String, day: Int): List<Pair<String, String>> {
     val result = mutableListOf<Pair<String, String>>()
     for (pair in pairs) {
-        val shiftsToday = pair.dayShifts.getOrElse(todayDay - 1) { continue }
+        val shiftsToday = pair.dayShifts.getOrElse(day - 1) { continue }
         if (shiftsToday.isEmpty()) continue
         val codes = shiftsToday.take(2)
         val dCode = if (codes.getOrNull(0) == "D") codes[0] else if (codes.getOrNull(1) == "D") codes[1] else null
@@ -141,7 +155,75 @@ private fun emptyUnitsForShift(pairs: List<UnitPair>, shift: String, todayDay: I
         }
         if (partnerAbsent != null) result += pair.vehicleId to partnerAbsent
     }
-    return result.sortedBy { it.first }
+    // Urutan prioritas (§6): CR/CTD/CTN/I/OFF paling atas, lalu berdasarkan nomor unit.
+    return result.sortedWith(compareBy({ absentRank(it.second) }, { it.first }))
+}
+
+/** Baris daftar untuk satu shift pada satu hari terpilih (§6). */
+private class RosterDayRow(
+    val roster: RosterEntity,
+    val code: String,          // kode hari ini untuk driver ini
+    val partnerName: String,   // nama pasangan di shift seberangnya
+    val partnerCode: String,   // kode pasangan hari ini
+)
+
+/** Bangun daftar baris per-shift untuk tanggal terpilih:
+ *  menampilkan driver shift tersebut BESERTA pasangannya (§6),
+ *  dengan unit berstatus libur (CR/CTD/CTN/I/OFF) ditempatkan PALING ATAS. */
+private fun buildDayRows(
+    rosters: List<RosterEntity>,
+    pairs: List<UnitPair>,
+    shift: String,
+    day: Int,
+): List<RosterDayRow> {
+    val rows = mutableListOf<RosterDayRow>()
+    val pairedIds = mutableSetOf<String>()
+    val pairMembers = rosters.filter { !it.vehicleId.contains("SPARE", ignoreCase = true) }
+        .groupBy { it.vehicleId.trim().uppercase() }
+
+    for (pair in pairs) {
+        val members = pairMembers[pair.vehicleId].orEmpty()
+        if (members.isEmpty()) continue
+        val codesToday = members.map {
+            it.getShiftsList().getOrElse(day - 1) { "" }.trim().uppercase()
+        }
+        val targetIdx = codesToday.indexOfFirst { c ->
+            if (shift == "D") c == "D" || c == "CTD" else c == "N" || c == "CTN"
+        }
+        val absentIdx = codesToday.indexOfFirst { it in ABSENT_CODES }
+        val pick = when {
+            targetIdx >= 0 -> targetIdx
+            absentIdx >= 0 -> absentIdx   // unit kosong → tetap tampil agar spare melihatnya
+            else -> continue
+        }
+        val selfIdx = pick
+        val partnerIdx = if (pick == 0 && members.size > 1) 1 else 0
+        pairedIds += members.map { it.driverName.trim().uppercase() }
+        rows += RosterDayRow(
+            roster = members[selfIdx],
+            code = codesToday.getOrElse(selfIdx) { "" },
+            partnerName = members.getOrElse(partnerIdx) { members[selfIdx] }.driverName,
+            partnerCode = codesToday.getOrElse(partnerIdx) { "" },
+        )
+    }
+
+    // Driver spare & baris yang belum terpasang tetap ditampilkan (tanpa info pasangan).
+    rosters.filter { r ->
+        val id = r.driverName.trim().uppercase()
+        r.vehicleId.contains("SPARE", ignoreCase = true) ||
+                (id !in pairedIds && !rosters.any { other ->
+                    other !== r && other.vehicleId.trim().uppercase() == r.vehicleId.trim().uppercase()
+                })
+    }.forEach { r ->
+        val code = r.getShiftsList().getOrElse(day - 1) { "" }.trim().uppercase()
+        val matchesTab = if (shift == "D") code == "D" || code == "CTD" || code == "OFF" || code in ABSENT_CODES
+        else code == "N" || code == "CTN" || code == "OFF" || code in ABSENT_CODES
+        if (matchesTab) rows += RosterDayRow(r, code, "", "")
+    }
+
+    return rows.sortedWith(
+        compareBy({ absentRank(it.code) }, { it.roster.driverName })
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -159,34 +241,48 @@ fun RosterScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var unitFilter by remember { mutableStateOf<String?>(null) }
-    var shiftTab by remember { mutableStateOf("D") } // "D" = Siang, "N" = Malam
+    // Tab §6: Semua | Siang | Malam — hanya untuk daftar harian (1 hari terpilih).
+    var shiftTab by remember { mutableStateOf("ALL") } // "ALL" / "D" / "N"
 
     val calendar = remember { Calendar.getInstance() }
     val daysInMonth = remember { calendar.getActualMaximum(Calendar.DAY_OF_MONTH) }
     val todayDay = remember { calendar.get(Calendar.DAY_OF_MONTH) }
+    // Tanggal yang ditampilkan di daftar harian — default hari ini, bisa digeser ← → (§6).
+    var selectedDay by remember { mutableStateOf(todayDay) }
     val idLocale = remember { java.util.Locale.forLanguageTag("id-ID") }
     val monthLabel = remember {
         SimpleDateFormat("MMMM yyyy", idLocale).format(calendar.time)
             .replaceFirstChar { it.titlecase(idLocale) }
     }
-    val todayLabel = remember {
-        SimpleDateFormat("EEEE, d MMMM", idLocale).format(calendar.time)
+    val selectedDayLabel = remember(selectedDay) {
+        val c = Calendar.getInstance()
+        c.set(Calendar.DAY_OF_MONTH, selectedDay)
+        SimpleDateFormat("EEEE, d MMMM", idLocale).format(c.time)
             .replaceFirstChar { it.titlecase(idLocale) }
     }
 
-    val filtered = remember(rosters, searchQuery, unitFilter, shiftTab, todayDay) {
-        rosters.filter {
-            (unitFilter == null || it.vehicleId.trim().uppercase().contains(unitFilter!!)) &&
-                    (searchQuery.isBlank() ||
-                            it.driverName.contains(searchQuery.trim(), ignoreCase = true) ||
-                            it.vehicleId.contains(searchQuery.trim(), ignoreCase = true)) &&
-                    it.getShiftsList().getOrNull(todayDay - 1)?.trim()?.uppercase() == shiftTab
-        }.sortedBy { it.driverName }
-    }
-
+    // Daftar harian 1 tanggal saja (§6): baris per-shift + pasangan, libur paling atas.
     val pairs = remember(rosters, daysInMonth) { buildUnitPairs(rosters, daysInMonth) }
-    val emptyUnits = remember(pairs, shiftTab, todayDay) {
-        emptyUnitsForShift(pairs, shiftTab, todayDay)
+    val dayRows = remember(rosters, pairs, shiftTab, selectedDay) {
+        val base = if (shiftTab == "ALL") {
+            buildDayRows(rosters, pairs, "D", selectedDay) + buildDayRows(rosters, pairs, "N", selectedDay)
+        } else {
+            buildDayRows(rosters, pairs, shiftTab, selectedDay)
+        }
+        base.filter { row ->
+            (unitFilter == null || row.roster.vehicleId.trim().uppercase().contains(unitFilter!!)) &&
+                    (searchQuery.isBlank() ||
+                            row.roster.driverName.contains(searchQuery.trim(), ignoreCase = true) ||
+                            row.roster.vehicleId.contains(searchQuery.trim(), ignoreCase = true))
+        }.distinctBy { it.roster.driverName.trim().uppercase() + "|" + it.code }
+            .sortedWith(compareBy({ absentRank(it.code) }, { it.roster.driverName }))
+    }
+    val emptyUnits = remember(pairs, shiftTab, selectedDay) {
+        if (shiftTab == "ALL") {
+            (emptyUnitsForShift(pairs, "D", selectedDay) + emptyUnitsForShift(pairs, "N", selectedDay))
+                .distinctBy { it.first }
+                .sortedWith(compareBy({ absentRank(it.second) }, { it.first }))
+        } else emptyUnitsForShift(pairs, shiftTab, selectedDay)
     }
     val vehicleOptions = remember(rosters) {
         rosters.map { it.vehicleId.trim().uppercase() }.filter { !it.contains("SPARE", true) }
@@ -194,6 +290,11 @@ fun RosterScreen(
     }
     val todayCode = mySchedule.getOrNull(todayDay - 1)?.code.orEmpty()
     val workDaysCount = remember(mySchedule) { mySchedule.count { it.code == "D" || it.code == "N" } }
+    val tabLabel = when (shiftTab) {
+        "D" -> "Siang"
+        "N" -> "Malam"
+        else -> "Semua"
+    }
 
     Column(
         modifier = Modifier
@@ -215,9 +316,9 @@ fun RosterScreen(
             }
             Spacer(Modifier.width(10.dp))
             Column {
-                Text("Roaster Kerja", fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                Text("Jadwal Kerja", fontSize = 19.sp, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground)
-                Text(monthLabel + " • " + todayLabel, fontSize = 12.sp,
+                Text(monthLabel + " • " + selectedDayLabel, fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.weight(1f))
@@ -296,22 +397,23 @@ fun RosterScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // ================= TAB SIANG / MALAM =================
+        // ================= TAB SEMUA / SIANG / MALAM + NAVIGASI HARI =================
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceVariant, ShapeInner),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            listOf("D" to "Siang", "N" to "Malam").forEach { (code, label) ->
+            listOf("ALL" to "Semua", "D" to "Siang", "N" to "Malam").forEach { (code, label) ->
                 val selected = shiftTab == code
+                val accent = if (code == "D") CodeDay else if (code == "N") CodeNight else EmployeePrimary
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .padding(3.dp)
                         .then(
                             if (selected)
-                                Modifier.background(shiftColor(code), ShapeInner)
+                                Modifier.background(accent, ShapeInner)
                             else Modifier
                         )
                         .clickable { shiftTab = code }
@@ -322,11 +424,49 @@ fun RosterScreen(
                         label,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (selected) contrastTextOn(shiftColor(code))
+                        color = if (selected) contrastTextOn(accent)
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Navigasi tanggal harian — daftar hanya menampilkan 1 hari (§6).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(
+                onClick = { if (selectedDay > 1) selectedDay-- },
+                enabled = selectedDay > 1,
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = 10.dp, vertical = 2.dp
+                ),
+            ) { Text("\u25C0", fontSize = 12.sp) }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                Text(selectedDayLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground)
+                if (selectedDay != todayDay) {
+                    TextButton(onClick = { selectedDay = todayDay }) {
+                        Text("Kembali ke hari ini", fontSize = 11.sp, color = EmployeePrimary)
+                    }
+                } else {
+                    Text("Hari ini", fontSize = 11.sp, color = EmployeeAccent,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            }
+            OutlinedButton(
+                onClick = { if (selectedDay < daysInMonth) selectedDay++ },
+                enabled = selectedDay < daysInMonth,
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = 10.dp, vertical = 2.dp
+                ),
+            ) { Text("\u25B6", fontSize = 12.sp) }
         }
 
         Spacer(Modifier.height(10.dp))
@@ -393,12 +533,13 @@ fun RosterScreen(
                         Icon(Icons.Default.WarningAmber, null, tint = EmployeeAccent)
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            "Unit Tanpa Driver Shift ${if (shiftTab == "D") "Siang" else "Malam"} Hari Ini",
+                            if (shiftTab == "ALL") "Unit Tanpa Driver Hari Ini"
+                            else "Unit Tanpa Driver Shift ${if (shiftTab == "D") "Siang" else "Malam"}",
                             fontSize = 13.sp, fontWeight = FontWeight.Bold, color = CodeDay,
                         )
                     }
                     Text(
-                        "${emptyUnits.size} unit kosong karena pasangannya berhalangan. " +
+                        "${emptyUnits.size} unit kosong karena drivernya libur/berhalangan. " +
                                 "Driver cadangan (spare) dapat mengambil alih unit ini.",
                         fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = 2.dp)
@@ -447,19 +588,19 @@ fun RosterScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Daftar Driver — Shift ${if (shiftTab == "D") "Siang" else "Malam"} ($monthLabel)",
+                    "Daftar Driver — $tabLabel • $selectedDayLabel",
                     fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
                 )
-                Text("${filtered.size} orang", fontSize = 12.sp,
+                Text("${dayRows.size} orang", fontSize = 12.sp,
                     color = EmployeeOkGreen, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(8.dp))
 
-            if (filtered.isEmpty()) {
+            if (dayRows.isEmpty()) {
                 Text(
-                    "Tidak ada driver shift ${if (shiftTab == "D") "siang" else "malam"} yang cocok dengan pencarian/filter ini.",
+                    "Tidak ada driver shift ${tabLabel.lowercase()} yang cocok dengan pencarian/filter ini pada hari terpilih.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
@@ -469,12 +610,13 @@ fun RosterScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                filtered.forEach { roster ->
+                dayRows.forEach { row ->
                     RosterRow(
-                        roster = roster,
-                        daysInMonth = daysInMonth,
-                        todayDay = todayDay,
-                        highlightSelf = isMyRow(roster)
+                        roster = row.roster,
+                        todayCode = row.code,
+                        partnerName = row.partnerName,
+                        partnerCode = row.partnerCode,
+                        highlightSelf = isMyRow(row.roster)
                     )
                 }
                 Spacer(Modifier.height(12.dp))
@@ -559,18 +701,25 @@ private fun MonthlyCalendarGrid(
 @Composable
 private fun RosterRow(
     roster: RosterEntity,
-    daysInMonth: Int,
-    todayDay: Int,
+    todayCode: String,
+    partnerName: String,
+    partnerCode: String,
     highlightSelf: Boolean,
 ) {
-    val shifts = remember(roster) { roster.getShiftsList() }
+    val isAbsent = todayCode in ABSENT_CODES
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = ShapeCard,
         colors = CardDefaults.cardColors(
-            containerColor = if (highlightSelf) EmployeePrimarySoft else MaterialTheme.colorScheme.surface
+            containerColor = when {
+                highlightSelf -> EmployeePrimarySoft
+                isAbsent -> shiftSoftBg(todayCode)
+                else -> MaterialTheme.colorScheme.surface
+            }
         ),
-        border = if (highlightSelf) androidx.compose.foundation.BorderStroke(1.dp, EmployeePrimary) else null,
+        border = if (highlightSelf) androidx.compose.foundation.BorderStroke(1.dp, EmployeePrimary)
+        else if (isAbsent) androidx.compose.foundation.BorderStroke(1.dp, shiftColor(todayCode).copy(alpha = 0.5f))
+        else null,
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -582,8 +731,22 @@ private fun RosterRow(
                     )
                     Text(roster.vehicleId, fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Info pasangan pada hari terpilih (§6): driver shift seberangnya.
+                    if (partnerName.isNotBlank() &&
+                        !partnerName.trim().equals(roster.driverName.trim(), ignoreCase = true)
+                    ) {
+                        Text(
+                            "Pasangan: $partnerName" +
+                                    if (partnerCode.isNotBlank()) " (${shiftLabel(partnerCode)})" else "",
+                            fontSize = 11.sp,
+                            color = if (partnerCode in ABSENT_CODES) shiftColor(partnerCode)
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (partnerCode in ABSENT_CODES) FontWeight.SemiBold
+                            else FontWeight.Normal,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                 }
-                val todayCode = shifts.getOrNull(todayDay - 1)?.trim()?.uppercase().orEmpty()
                 if (todayCode.isNotEmpty()) {
                     Box(
                         modifier = Modifier
@@ -595,39 +758,13 @@ private fun RosterRow(
                     }
                 }
             }
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                for (day in 1..daysInMonth) {
-                    val code = shifts.getOrElse(day - 1) { "" }.trim().uppercase()
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "$day", fontSize = 8.sp,
-                            color = if (day == todayDay) EmployeeAccent else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = if (day == todayDay) FontWeight.Bold else FontWeight.Normal
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 2.dp)
-                                .width(if (code.length > 1) 24.dp else 16.dp)
-                                .height(20.dp)
-                                .background(
-                                    if (code.isEmpty()) MaterialTheme.colorScheme.surfaceVariant
-                                    else shiftColor(code),
-                                    RoundedCornerShape(5.dp)
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                code.ifEmpty { "-" },
-                                fontSize = 8.sp,
-                                color = if (code.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                else contrastTextOn(shiftColor(code)),
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(3.dp))
-                }
+            if (isAbsent) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Unit butuh pengganti — driver spare dapat mengambil alih.",
+                    fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                    color = shiftColor(todayCode),
+                )
             }
         }
     }

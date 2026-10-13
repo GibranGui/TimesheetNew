@@ -39,6 +39,14 @@ val CodeOffBg = Color(0xFFE8F5E9)
 val CodeLeaveBg = Color(0xFFFFEBEE)
 val CodeOtherBg = Color(0xFFECEFF1)
 
+// ---------- Warna status libur per kode (legenda §5; CTD/CTN bukan shift penuh) ----------
+val CodeCtd = Color(0xFFEF6C00)         // CTD: cuti tahunan siang (oranye redup, bukan D murni)
+val CodeCtn = Color(0xFF5C6BC0)         // CTN: cuti tahunan malam (indigo, bukan N murni)
+val CodeInduction = Color(0xFF00897B)   // I  : induksi (teal — bukan cuti)
+val CodeCtdBg = Color(0xFFFFF8E1)
+val CodeCtnBg = Color(0xFFE8EAF6)
+val CodeInductionBg = Color(0xFFE0F2F1)
+
 /** Teks yang selalu kontras saat diletakkan di atas [bg]. */
 fun contrastTextOn(bg: Color): Color =
     if (0.299 * bg.red + 0.587 * bg.green + 0.114 * bg.blue > 0.6)

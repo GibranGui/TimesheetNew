@@ -229,7 +229,6 @@ fun SettingsScreen(
                     if (profile != null) {
                         Text("Nama: ${profile.fullName}", style = MaterialTheme.typography.bodyMedium)
                         Text("Nomor HP: ${profile.phone}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Nama pengguna: ${profile.username}", style = MaterialTheme.typography.bodyMedium)
                         OutlinedButton(
                             onClick = onSignOutClick,
                             modifier = Modifier.fillMaxWidth()

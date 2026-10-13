@@ -164,7 +164,7 @@ fun RosterScreen(
     val calendar = remember { Calendar.getInstance() }
     val daysInMonth = remember { calendar.getActualMaximum(Calendar.DAY_OF_MONTH) }
     val todayDay = remember { calendar.get(Calendar.DAY_OF_MONTH) }
-    val idLocale = remember { Locale("id", "ID") }
+    val idLocale = remember { java.util.Locale.forLanguageTag("id-ID") }
     val monthLabel = remember {
         SimpleDateFormat("MMMM yyyy", idLocale).format(calendar.time)
             .replaceFirstChar { it.titlecase(idLocale) }

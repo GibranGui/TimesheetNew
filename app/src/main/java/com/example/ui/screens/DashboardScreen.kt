@@ -105,7 +105,7 @@ fun DashboardScreen(
 
     // Nama bulan berjalan (kalender saat ini) — dipakai untuk judul ringkasan & jadwal
     val currentMonthLabel = remember {
-        SimpleDateFormat("MMMM yyyy", Locale("id", "ID")).format(Calendar.getInstance().time)
+        SimpleDateFormat("MMMM yyyy", java.util.Locale.forLanguageTag("id-ID")).format(Calendar.getInstance().time)
     }
     val todayDay = remember { Calendar.getInstance().get(Calendar.DAY_OF_MONTH) }
 

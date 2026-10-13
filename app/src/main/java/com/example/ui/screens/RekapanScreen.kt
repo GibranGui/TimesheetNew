@@ -87,7 +87,7 @@ fun RekapanScreen(
             val c = java.util.Calendar.getInstance()
             c.set(java.util.Calendar.YEAR, parts[0].toInt())
             c.set(java.util.Calendar.MONTH, parts[1].toInt() - 1)
-            java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale("id", "ID"))
+            java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.forLanguageTag("id-ID"))
                 .format(c.time).replaceFirstChar { it.titlecase() }
         } catch (_: Exception) { selectedMonth }
     }

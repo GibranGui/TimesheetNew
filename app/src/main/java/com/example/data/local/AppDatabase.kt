@@ -71,7 +71,14 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE shifts ADD COLUMN ownerId TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE ritase_events ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE fuel_entries ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''")
-                db.execSQL("ALTER TABLE ritase_events RENAME COLUMN trigger TO trigger_type")
+                // Rename hanya bila kolom lama masih ada. Pada sebagian instalasi, kolom
+                // "trigger" sudah hilang/ganti nama — perintah RENAME yang gagal akan
+                // membatalkan seluruh migrasi dan membuat aplikasi crash saat dibuka.
+                if (hasColumn(db, "ritase_events", "trigger")) {
+                    db.execSQL("ALTER TABLE ritase_events RENAME COLUMN trigger TO trigger_type")
+                } else if (!hasColumn(db, "ritase_events", "trigger_type")) {
+                    db.execSQL("ALTER TABLE ritase_events ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'AUTO'")
+                }
             }
         }
 
@@ -106,15 +113,50 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Tambah kolom driver_name hanya bila belum ada (aman dijalankan berulang).
+        private fun addColumnIfMissing(db: SupportSQLiteDatabase, table: String, columnDef: String) {
+            val columnName = columnDef.substringAfter("ADD COLUMN ").substringBefore(" ")
+            if (!hasColumn(db, table, columnName)) {
+                db.execSQL("ALTER TABLE $table ADD COLUMN $columnDef")
+            }
+        }
+
+        /** Cek keberadaan kolom lewat PRAGMA table_info — tidak melempar exception. */
+        private fun hasColumn(db: SupportSQLiteDatabase, table: String, column: String): Boolean {
+            var found = false
+            try {
+                db.query("PRAGMA table_info($table)").use { cursor ->
+                    val nameIdx = cursor.getColumnIndexOrThrow("name")
+                    while (cursor.moveToNext()) {
+                        if (cursor.getString(nameIdx).equals(column, ignoreCase = true)) {
+                            found = true
+                            break
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // tabel belum ada sama sekali -> anggap kolom tidak ada
+            }
+            return found
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                // PERBAIKAN CRASH v2.5 -> v2.6:
+                // 1) Hapus fallbackToDestructiveMigration(). Mode itu membuat database lama
+                //    TERHAPUS TOTAL bila ada migrasi yang gagal, dan pada sebagian ROM
+                //    justru memicu crash saat aplikasi pertama dibuka.
+                // 2) Kolom "trigger" pada ritase_events sudah diganti menjadi "trigger_type"
+                //    lewat MIGRATION_2_3. Kalau kolom lama sudah tidak ada (misal database
+                //    dibuat ulang), perintah RENAME di bawah akan melempar exception ->
+                //    seluruh migrasi gagal -> aplikasi crash saat membuka layar mana pun.
+                //    Sekarang periksa dulu keberadaan kolomnya sebelum me-rename.
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "dt_timesheet_database"
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
-                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

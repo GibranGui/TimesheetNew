@@ -154,7 +154,8 @@ fun RosterScreen(
     isSyncing: Boolean,
     lastSyncTime: Long,
     onRefreshClick: () -> Unit,
-    onStartShiftClick: () -> Unit
+    onStartShiftClick: () -> Unit,
+    isMyRow: (RosterEntity) -> Boolean = { false }
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var unitFilter by remember { mutableStateOf<String?>(null) }
@@ -223,7 +224,7 @@ fun RosterScreen(
             OutlinedButton(
                 onClick = onRefreshClick,
                 enabled = !isSyncing,
-                shape = ShapeInner,
+                shape = RoundedCornerShape(12.dp),
             ) {
                 if (isSyncing) {
                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
@@ -280,7 +281,7 @@ fun RosterScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White, contentColor = EmployeePrimary
                         ),
-                        shape = ShapeInner,
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
                             horizontal = 14.dp, vertical = 6.dp
                         )
@@ -336,7 +337,7 @@ fun RosterScreen(
             onValueChange = { searchQuery = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            shape = ShapeInner,
+            shape = RoundedCornerShape(12.dp),
             placeholder = { Text("Cari nama driver atau nomor unit…") },
             leadingIcon = { Icon(Icons.Default.Search, null) },
             trailingIcon = {
@@ -473,8 +474,7 @@ fun RosterScreen(
                         roster = roster,
                         daysInMonth = daysInMonth,
                         todayDay = todayDay,
-                        highlightSelf = driverName.isNotBlank() &&
-                                roster.driverName == driverName.uppercase()
+                        highlightSelf = isMyRow(roster)
                     )
                 }
                 Spacer(Modifier.height(12.dp))

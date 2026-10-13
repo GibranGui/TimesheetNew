@@ -80,6 +80,18 @@ fun RekapanScreen(
     val totalKm = shifts.sumOf { it.totalKm }
     val totalFuel = shifts.sumOf { it.totalFuel }
 
+    // Nama bulan aktif dari filter periode (format "yyyy-MM")
+    val monthLabel = remember(selectedMonth) {
+        try {
+            val parts = selectedMonth.split("-")
+            val c = java.util.Calendar.getInstance()
+            c.set(java.util.Calendar.YEAR, parts[0].toInt())
+            c.set(java.util.Calendar.MONTH, parts[1].toInt() - 1)
+            java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale("id", "ID"))
+                .format(c.time).replaceFirstChar { it.titlecase() }
+        } catch (_: Exception) { selectedMonth }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -134,7 +146,7 @@ fun RekapanScreen(
                             color = EmployeePrimary.copy(alpha = 0.2f)
                         ) {
                             Text(
-                                text = "Oktober 2026 ($selectedMonth)",
+                                text = monthLabel,
                                 fontWeight = FontWeight.Bold,
                                 color = EmployeePrimary,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)

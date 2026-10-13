@@ -384,7 +384,8 @@ fun MainAppContent(viewModel: MainViewModel) {
                             isSyncing = isRosterSyncing,
                             lastSyncTime = rosterLastSync,
                             onRefreshClick = { viewModel.syncRosterNow() },
-                            onStartShiftClick = { currentTab = AppTab.SHIFT }
+                            onStartShiftClick = { currentTab = AppTab.SHIFT },
+                            isMyRow = { row -> viewModel.rosterMatchesDriver(row, myName0) }
                         )
                     }
 
@@ -400,15 +401,21 @@ fun MainAppContent(viewModel: MainViewModel) {
                             val currentShift = activeShift!!
                             // Ringkasan bulan berjalan + jadwal sebulan driver yang login
                             val calNow = java.util.Calendar.getInstance()
-                            val ymNow = String.format(
-                                java.util.Locale.US, "%04d-%02d",
-                                calNow.get(java.util.Calendar.YEAR),
-                                calNow.get(java.util.Calendar.MONTH) + 1
-                            )
-                            val monthShiftsNow = completedShifts.filter { it.date.endsWith(ymNow) }
                             val myName = accountState.profile?.fullName.orEmpty()
                             val daysInMonthNow = calNow.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
-                            val mySchedule = remember(rosters, myName, ymNow) {
+                            // Tanggal shift tersimpan sebagai "dd/MM/yyyy" (lihat StartShiftScreen),
+                            // jadi cocokkan bagian bulan/tahun agar filter bulan berjalan benar.
+                            val curYear = String.format(
+                                java.util.Locale.US, "%04d", calNow.get(java.util.Calendar.YEAR)
+                            )
+                            val curMonth = String.format(
+                                java.util.Locale.US, "%02d", calNow.get(java.util.Calendar.MONTH) + 1
+                            )
+                            val monthShiftsNow = completedShifts.filter { s ->
+                                val mm = Regex("^(\\d{2})/(\\d{2})/(\\d{4})$").find(s.date.trim())
+                                mm != null && mm.groupValues[3] == curYear && mm.groupValues[2] == curMonth
+                            }
+                            val mySchedule = remember(rosters, myName) {
                                 (1..daysInMonthNow).map { d ->
                                     com.example.ui.screens.DaySchedule(d, viewModel.rosterCodeForDay(myName, d))
                                 }

@@ -7,8 +7,8 @@ import com.example.data.local.AccountManager
 import com.example.data.local.AppDatabase
 import com.example.data.local.FuelEntryEntity
 import com.example.data.local.LoadingAreaEntity
-import com.example.data.local.RitaseEntity
 import com.example.data.local.RosterEntity
+import com.example.data.local.RitaseEntity
 import com.example.data.local.ShiftEntity
 import com.example.data.local.UnitEntity
 import com.example.data.repository.ShiftRepository
@@ -162,10 +162,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun rosterCodeForDay(driverName: String, dayOfMonth: Int): String {
         if (driverName.isBlank()) return ""
+        val target = driverName.trim().uppercase()
         val row = rosters.value.firstOrNull {
-            it.driverName.trim().equals(driverName.trim(), ignoreCase = true)
+            // Nama di sheet bisa berisi beberapa driver dalam satu baris
+            // (contoh: "BUDI SANTOSO / AGUS"), jadi cocokkan juga per bagian.
+            val name = it.driverName.trim().uppercase()
+            name == target || name.split('/').any { part -> part.trim() == target }
         } ?: return ""
-        return row.getShiftsList().getOrElse(dayOfMonth - 1) { "" }.trim()
+        return row.getShiftsList().getOrElse(dayOfMonth - 1) { "" }.trim().uppercase()
+    }
+
+    /** Cocokkan satu baris roster dengan nama driver yang login (termasuk format gabungan). */
+    fun rosterMatchesDriver(row: RosterEntity, driverName: String): Boolean {
+        if (driverName.isBlank()) return false
+        val target = driverName.trim().uppercase()
+        val name = row.driverName.trim().uppercase()
+        return name == target || name.split('/').any { it.trim() == target }
     }
 
     init {

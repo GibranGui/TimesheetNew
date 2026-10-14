@@ -120,13 +120,22 @@ fun MainAppContent(viewModel: MainViewModel) {
     var showLocationWarning by remember { mutableStateOf(false) }
     var showBatteryWarning by remember { mutableStateOf(false) }
 
-    // Peringatan bila layanan lokasi (GPS) di HP belum dinyalakan.
-    LaunchedEffect(Unit) {
-        while (true) {
-            if (!com.example.util.DeviceHealthChecker.isLocationEnabled(context)) {
-                showLocationWarning = true
+    var locationDismissedThisShift by remember(activeShift?.id) { mutableStateOf(false) }
+
+    // Peringatan bila layanan lokasi (GPS) di HP belum dinyalakan SAAT SHIFT AKTIF saja.
+    // (Sebelumnya dialog muncul berulang tiap 15 detik bahkan saat tidak ada shift — membingungkan.)
+    LaunchedEffect(activeShift != null, locationDismissedThisShift) {
+        if (activeShift != null && !locationDismissedThisShift) {
+            while (true) {
+                if (!com.example.util.DeviceHealthChecker.isLocationEnabled(context)) {
+                    showLocationWarning = true
+                } else {
+                    showLocationWarning = false
+                }
+                delay(15_000L)
             }
-            delay(15_000L)
+        } else {
+            showLocationWarning = false
         }
     }
 
@@ -145,7 +154,10 @@ fun MainAppContent(viewModel: MainViewModel) {
 
     if (showLocationWarning) {
         androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showLocationWarning = false },
+            onDismissRequest = {
+                showLocationWarning = false
+                locationDismissedThisShift = true
+            },
             icon = {
                 Icon(
                     Icons.Default.GpsNotFixed,
@@ -164,7 +176,10 @@ fun MainAppContent(viewModel: MainViewModel) {
                 }) { Text("Buka Pengaturan Lokasi") }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showLocationWarning = false }) {
+                androidx.compose.material3.TextButton(onClick = {
+                    showLocationWarning = false
+                    locationDismissedThisShift = true
+                }) {
                     Text("Nanti Saja")
                 }
             }
@@ -385,7 +400,7 @@ fun MainAppContent(viewModel: MainViewModel) {
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (currentTab) {
                     AppTab.ROASTER -> {
                         // Menu utama: jadwal kerja driver yang login, format kalender sebulan.

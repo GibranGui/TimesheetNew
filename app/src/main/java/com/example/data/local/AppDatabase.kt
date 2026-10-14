@@ -69,6 +69,7 @@ abstract class AppDatabase : RoomDatabase() {
                     """.trimIndent()
                 )
                 db.execSQL("ALTER TABLE shifts ADD COLUMN ownerId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_user_accounts_username ON user_accounts (username)")
                 db.execSQL("ALTER TABLE ritase_events ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE fuel_entries ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''")
                 // Rename hanya bila kolom lama masih ada. Pada sebagian instalasi, kolom

@@ -273,23 +273,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshAccountState() {
         viewModelScope.launch {
-            _hasDriverList.value = accountManager.hasDriverList()
-            _savedAccounts.value = accountManager.savedAccounts()
-            val loggedIn = accountManager.isLoggedIn()
-            _accountState.value = if (loggedIn) {
-                AccountState(
-                    checked = true,
-                    loggedIn = true,
-                    profile = accountManager.currentProfile(),
-                    hasAnyAccount = accountManager.hasAnyAccount()
-                )
-            } else {
-                AccountState(
-                    checked = true,
-                    loggedIn = false,
-                    profile = null,
-                    hasAnyAccount = accountManager.hasAnyAccount()
-                )
+            try {
+                _hasDriverList.value = accountManager.hasDriverList()
+                _savedAccounts.value = accountManager.savedAccounts()
+                val loggedIn = accountManager.isLoggedIn()
+                _accountState.value = if (loggedIn) {
+                    AccountState(
+                        checked = true,
+                        loggedIn = true,
+                        profile = accountManager.currentProfile(),
+                        hasAnyAccount = accountManager.hasAnyAccount()
+                    )
+                } else {
+                    AccountState(
+                        checked = true,
+                        loggedIn = false,
+                        profile = null,
+                        hasAnyAccount = accountManager.hasAnyAccount()
+                    )
+                }
+            } catch (e: Exception) {
+                // Jangan biarkan exception DB sesi lama menjatuhkan aplikasi saat dibuka.
+                // Tampilkan layar login; data di database tetap utuh (tidak dihapus).
+                _accountState.value = AccountState(checked = true, loggedIn = false, profile = null)
+                _uiError.value = "Ada masalah membaca akun lama. Silakan login kembali."
             }
         }
     }

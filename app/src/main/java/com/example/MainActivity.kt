@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
@@ -260,15 +261,29 @@ fun MainAppContent(viewModel: MainViewModel) {
         }
     }
 
+    // Semua kolektor state dibaca DI SINI (level komposabel yang sama, tanpa kondisi),
+    // supaya jumlah/perintah pemanggilan Compose identik di setiap recomposition.
+    // Sebelumnya kolektor-kolektor ini berada di dalam `if (...)` sehingga saat status
+    // login berubah (checked -> loggedIn/loggedOut), urutan slot Compose berubah dan
+    // aplikasi crash sesaat setelah layar putih muncul (< 1 detik).
+    val driverSuggestions by viewModel.driverSuggestions.collectAsStateWithLifecycle()
+    val hasDriverList by viewModel.hasDriverList.collectAsStateWithLifecycle()
+    val savedAccounts by viewModel.savedAccounts.collectAsStateWithLifecycle()
+    val isRosterSyncing by viewModel.isRosterSyncing.collectAsStateWithLifecycle()
+    val rosterLastSync by viewModel.rosterLastSync.collectAsStateWithLifecycle()
+
     if (!accountState.checked) {
-        // Pemeriksaan sesi singkat — tampilkan layar kosong agar tidak kedip.
+        // Pemeriksaan sesi singkat — tampilkan loading kecil agar tidak blank/crash.
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.CircularProgressIndicator(color = EmployeePrimary)
+        }
         return
     }
 
     if (!accountState.loggedIn) {
-        val driverSuggestions by viewModel.driverSuggestions.collectAsStateWithLifecycle()
-        val hasDriverList by viewModel.hasDriverList.collectAsStateWithLifecycle()
-        val savedAccounts by viewModel.savedAccounts.collectAsStateWithLifecycle()
         AccountScreen(
             hasAnyAccount = accountState.hasAnyAccount,
             savedAccounts = savedAccounts,
@@ -374,8 +389,6 @@ fun MainAppContent(viewModel: MainViewModel) {
             when (currentTab) {
                     AppTab.ROASTER -> {
                         // Menu utama: jadwal kerja driver yang login, format kalender sebulan.
-                        val isRosterSyncing by viewModel.isRosterSyncing.collectAsStateWithLifecycle()
-                        val rosterLastSync by viewModel.rosterLastSync.collectAsStateWithLifecycle()
                         val calNow0 = java.util.Calendar.getInstance()
                         val daysInMonth0 = calNow0.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
                         val myName0 = accountState.profile?.fullName.orEmpty()

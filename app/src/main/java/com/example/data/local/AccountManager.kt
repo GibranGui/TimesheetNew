@@ -187,6 +187,11 @@ class AccountManager private constructor(private val context: Context) {
     private fun startSession(account: UserAccountEntity) {
         prefs().edit()
             .putString(KEY_ACCOUNT_ID, account.id)
+            // Kunci sesi = username tersimpan di DB. Untuk akun baru, username diisi
+            // dengan Nama Driver (§8). Gunakan `account.username` — BUKAN fullName —
+            // agar konsisten dengan findByUsername yang dibaca ulang saat cek sesi.
+            // Ketidakcocokan keduanya membuat sesi lama gagal dibaca dan aplikasi
+            // crash/terlempar ke layar login setiap kali dibuka.
             .putString("active_username", account.username)
             .apply()
     }

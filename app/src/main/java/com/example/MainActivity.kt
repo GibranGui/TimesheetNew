@@ -366,6 +366,8 @@ fun MainAppContent(viewModel: MainViewModel) {
                         ),
                         modifier = Modifier.testTag("tab_settings")
                     )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->

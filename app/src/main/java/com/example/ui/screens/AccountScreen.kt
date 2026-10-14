@@ -283,8 +283,8 @@ fun AccountScreen(
                             modifier = Modifier.horizontalScroll(rememberScrollState())
                         ) {
                             savedAccounts.forEach { acc ->
-                                OutlinedButton(onClick = { fullName = acc.driverName }) {
-                                    Text(acc.driverName, fontSize = 12.sp, maxLines = 1)
+                                OutlinedButton(onClick = { fullName = acc.fullName }) {
+                                    Text(acc.fullName, fontSize = 12.sp, maxLines = 1)
                                 }
                             }
                         }

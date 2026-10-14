@@ -110,14 +110,24 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
+                // BUGFIX CRASH STARTUP: ShiftEntity punya kolom driverName, tapi migrasi lama
+                // tidak pernah menambahkannya ke tabel shifts di HP yang meng-upgrade dari v<5.
+                // Saat startup Room memverifikasi schema -> "no such column: driverName" -> crash.
+                addColumnIfMissing(db, "shifts", "driverName", "TEXT NOT NULL DEFAULT ''")
+                // Pastikan indeks unique username user_accounts ada (integritas data akun).
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_user_accounts_username ON user_accounts (username)")
             }
         }
 
-        // Tambah kolom driver_name hanya bila belum ada (aman dijalankan berulang).
-        private fun addColumnIfMissing(db: SupportSQLiteDatabase, table: String, columnDef: String) {
-            val columnName = columnDef.substringAfter("ADD COLUMN ").substringBefore(" ")
+        // Tambah kolom hanya bila belum ada (aman dijalankan berulang).
+        private fun addColumnIfMissing(
+            db: SupportSQLiteDatabase,
+            table: String,
+            columnName: String,
+            columnTypeAndConstraint: String
+        ) {
             if (!hasColumn(db, table, columnName)) {
-                db.execSQL("ALTER TABLE $table ADD COLUMN $columnDef")
+                db.execSQL("ALTER TABLE $table ADD COLUMN $columnName $columnTypeAndConstraint")
             }
         }
 
@@ -157,6 +167,8 @@ abstract class AppDatabase : RoomDatabase() {
                     "dt_timesheet_database"
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    // Aman: hanya aktif saat DOWNGRADE (instal versi lebih lama), bukan upgrade.
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance
                 instance

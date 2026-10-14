@@ -1,0 +1,328 @@
+package com.example.ui.screens
+
+import com.example.ui.theme.ShapeInner
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.ui.theme.EmployeePrimary
+
+/**
+ * Layar pembuka aplikasi: masuk atau membuat akun (§8 — TANPA email).
+ * Login/daftar cukup dengan **Nama Driver** (harus sama dengan yang terdaftar
+ * di Google Sheet jadwal) + **Kata sandi**. Multi-akun didukung lewat pemilih
+ * akun, karena 1 unit = 2 driver beda shift dan satu HP bisa dipakai bergantian.
+ */
+@Composable
+fun AccountScreen(
+    hasAnyAccount: Boolean,
+    savedAccounts: List<com.example.data.local.AccountManager.SavedAccount>,
+    driverSuggestions: List<String>,
+    hasDriverList: Boolean,
+    onSearchDriverName: (String) -> Unit,
+    onLogin: (driverName: String, password: String) -> Unit,
+    onRegister: (fullName: String, phone: String, password: String, confirm: String) -> Unit,
+    onSyncRoster: (() -> Unit)? = null,
+    isSyncing: Boolean = false
+) {
+    var isRegisterMode by remember { mutableStateOf(!hasAnyAccount) }
+
+    // Nama yang sedang diketik dipisah per mode agar form login & daftar tidak saling mengotori.
+    var regName by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+
+    val canSubmit = if (isRegisterMode) {
+        regName.isNotBlank() && password.isNotBlank() && confirm.isNotBlank()
+    } else {
+        fullName.isNotBlank() && password.isNotBlank()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Judul aplikasi
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(EmployeePrimary.copy(alpha = 0.15f), ShapeInner),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.LocalShipping,
+                    contentDescription = null,
+                    tint = EmployeePrimary,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "Timesheet Dump Truck",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = if (isRegisterMode)
+                    "Buat akun dulu ya, cukup sekali saja."
+                else
+                    "Masuk untuk melanjutkan pencatatan shift.",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = ShapeInner,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (isRegisterMode) {
+                        OutlinedTextField(
+                            value = regName,
+                            onValueChange = {
+                                regName = it
+                                onSearchDriverName(it)
+                            },
+                            label = { Text("Nama lengkap (harus sama dengan di jadwal kerja)") },
+                            supportingText = {
+                                Text(if (hasDriverList)
+                                    "Ketik minimal 2 huruf lalu pilih nama dari saran di bawah."
+                                else
+                                    "Jadwal kantor belum tersimpan di HP. Anda tetap bisa mendaftar atau klik tombol muat jadwal di bawah.")
+                            },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (!hasDriverList && onSyncRoster != null) {
+                            OutlinedButton(
+                                onClick = onSyncRoster,
+                                enabled = !isSyncing,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                if (isSyncing) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Sedang mengunduh jadwal…", fontSize = 12.sp)
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Muat Jadwal Kantor Sekarang", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        // Saran nama driver dari jadwal kerja (Google Sheet yang sudah tersimpan di HP)
+                        if (driverSuggestions.isNotEmpty() && regName.trim().length >= 2 &&
+                            !driverSuggestions.any { it.equals(regName.trim(), ignoreCase = true) }
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    "Nama yang ada di jadwal kerja:",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                                ) {
+                                    driverSuggestions.take(6).forEach { name ->
+                                        OutlinedButton(onClick = { regName = name }) {
+                                            Text(name, fontSize = 12.sp, maxLines = 1)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        OutlinedTextField(
+                            value = phone,
+                            onValueChange = { if (it.length <= 14) phone = it },
+                            label = { Text("Nomor HP aktif") },
+                            prefix = { Text("+62 ") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Phone,
+                                imeAction = ImeAction.Next
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    if (!isRegisterMode) {
+                        // Login: Nama Driver saja (§8 — tanpa email/username terpisah)
+                        OutlinedTextField(
+                            value = fullName,
+                            onValueChange = { fullName = it },
+                            label = { Text("Nama Driver (sesuai jadwal kerja)") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Kata sandi") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = if (isRegisterMode) ImeAction.Next else ImeAction.Done
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (isRegisterMode) {
+                        OutlinedTextField(
+                            value = confirm,
+                            onValueChange = { confirm = it },
+                            label = { Text("Tulis ulang kata sandi") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Button(
+                        onClick = {
+                            if (isRegisterMode) {
+                                onRegister(regName, "+62${phone.filter { it.isDigit() }}",
+                                    password, confirm)
+                            } else {
+                                onLogin(fullName, password)
+                            }
+                        },
+                        enabled = canSubmit,
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployeePrimary),
+                        shape = ShapeInner,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        Text(
+                            text = if (isRegisterMode) "Buat Akun" else "Masuk",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (canSubmit) Color.Black else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    if (hasAnyAccount) {
+                        OutlinedButton(
+                            onClick = { isRegisterMode = !isRegisterMode },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (isRegisterMode) "Sudah punya akun? Masuk di sini"
+                                else "Belum punya akun? Buat baru",
+                                color = EmployeePrimary,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    // Pemilih akun tersimpan (§8 — multi-akun, satu HP bisa dipakai bergantian)
+                    if (!isRegisterMode && savedAccounts.size > 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Akun yang pernah login di HP ini:",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                        ) {
+                            savedAccounts.forEach { acc ->
+                                OutlinedButton(onClick = { fullName = acc.fullName }) {
+                                    Text(acc.fullName, fontSize = 12.sp, maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Catatan: akun & data tersimpan di HP ini. Aplikasi tetap bisa dipakai tanpa internet.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
+        }
+    }
+}

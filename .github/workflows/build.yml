@@ -1,0 +1,47 @@
+name: Build APK
+
+on:
+  push:
+    branches:
+      - main
+      - build-apk
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # action "setup-android" bawaan tidak lagi bisa memasang paket lama 'tools'
+      # (sudah dihapus dari Android SDK). Sebagai gantinya, Gradle yang akan
+      # mengunduh SDK secara otomatis lewat Android Gradle Plugin.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p $HOME/Android/Sdk/licenses
+          for h in android-sdk-license android-sdk-preview-license; do
+            echo -e "\\n8933bad161af4178b1185d1a37fbf41d52d8bfe4\\nd56f5187479361e1c2fa30f7b2e25545a6d89e4c\\n24333f8a63b6825ea414c8175b682c0dd21ea472" >> $HOME/Android/Sdk/licenses/$h
+          done
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk

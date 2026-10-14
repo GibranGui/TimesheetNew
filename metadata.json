@@ -1,0 +1,6 @@
+{
+  "name": "DT Time Sheet",
+  "description": "Aplikasi pencatatan aktivitas Dump Truck (DT) selama shift kerja dengan GPS ritase otomatis dan sinkronisasi Google Sheets/Drive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

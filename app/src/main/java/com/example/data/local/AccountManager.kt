@@ -1,7 +1,9 @@
 package com.example.data.local
 
 import android.content.Context
+import com.example.data.remote.SupabaseSyncClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import java.util.UUID
@@ -10,14 +12,16 @@ import java.util.UUID
  * Pengelola akun pengguna.
  *
  * Pendaftaran cukup dengan Nama Driver (sesuai jadwal kerja) + kata sandi (§8 — tanpa email/username).
- * Semua tersimpan aman di HP ini saja; kata sandi sudah dikunci (di-hash)
- * sehingga tidak terbaca walau HP diperiksa orang lain.
+ * Akun tersimpan aman di HP ini (kata sandi di-hash); saat online, daftar akun
+ * (Nama Driver, No. HP, hash+salt — BUKAN password asli) ikut diunggah ke Supabase
+ * agar bisa divalidasi lintas perangkat saat login.
  */
 class AccountManager private constructor(private val context: Context) {
 
     data class Profile(val fullName: String, val phone: String)
 
     private val db by lazy { AppDatabase.getInstance(context) }
+    private val supabase by lazy { SupabaseSyncClient(context) }
 
     companion object {
         @Volatile
@@ -95,9 +99,12 @@ class AccountManager private constructor(private val context: Context) {
 
     private suspend fun activeAccount(): UserAccountEntity? {
         val id = activeAccountId() ?: return null
-        // Simpan juga username terakhir agar bisa diverifikasi cepat.
-        val username = prefs().getString("active_username", null) ?: return null
-        val acc = db.userAccountDao().findByUsername(username) ?: return null
+        // Simpan juga nama aktif terakhir agar bisa diverifikasi cepat.
+        val username = prefs().getString("active_username", null)
+        val acc = username?.let { db.userAccountDao().findByUsername(it) }
+            ?: try { db.userAccountDao().getAll().firstOrNull { a -> a.id == id } }
+               catch (e: Exception) { null }
+            ?: return null
         return if (acc.id == id) acc else null
     }
 
@@ -153,30 +160,87 @@ class AccountManager private constructor(private val context: Context) {
         } catch (e: Exception) {
             return@withContext "Nama sudah terdaftar. Silakan login."
         }
+        // Upload akun ke Supabase agar bisa divalidasi lintas perangkat saat login.
+        // Gagal upload (offline/server belum diatur) TIDAK membatalkan pendaftaran —
+        // akun tetap aktif di HP ini dan akan dicoba unggah ulang saat login berikutnya.
+        supabase.pushUserAccount(account)
         startSession(account)
         null
     }
 
     /**
+     * Coba unggah ulang akun lokal yang belum berhasil terkirim ke server.
+     * Dipanggil setelah login sukses (saat itu pasti online).
+     */
+    private suspend fun retryUploadAccounts() {
+        val accounts = try { db.userAccountDao().getAll() } catch (e: Exception) { emptyList() }
+        for (a in accounts) {
+            if (!a.uploadedToServer) {
+                supabase.pushUserAccount(a)
+                delay(200L)
+            }
+        }
+    }
+
+    /**
      * Login dengan Nama Driver + kata sandi (§8).
      * Aplikasi WAJIB memvalidasi apakah akun sudah terdaftar atau belum:
-     * - belum mendaftar → minta user mendaftar dulu;
-     * - sudah mendaftar tapi sandi salah → tolak;
-     * - cocok → langsung masuk.
+     * - cek TERLEBIH DAHULU ke Supabase (data user_accounts: nama driver, no hp, hash sandi);
+     * - jika belum ada di server → tolak ("belum terdaftar, silakan daftar dulu");
+     * - jika sandi salah → tolak;
+     * - cocok → simpan/perbarui salinan lokal lalu masuk.
+     * Saat offline, validasi jatuh ke data lokal HP terakhir (prinsip §9.3 offline-first).
      * @return null jika berhasil, atau pesan kesalahan berbahasa awam.
      */
     suspend fun login(driverName: String, password: String): String? =
         withContext(Dispatchers.IO) {
             val name = driverName.trim().replace(Regex("\\s+"), " ")
             if (name.isBlank()) return@withContext "Nama driver tidak boleh kosong."
-            val account = db.userAccountDao().findByUsername(name)
-                ?: return@withContext "Akun \"$name\" belum terdaftar. Silakan daftar dulu."
-            if (account.passwordHash != sha256(account.salt + password))
-                return@withContext "Kata sandi salah. Coba lagi ya."
-            db.userAccountDao().touchLogin(account.id, System.currentTimeMillis())
-            startSession(account)
-            null
+
+            // 1) Validasi ke Supabase (server adalah sumber kebenaran akun terdaftar).
+            val remote = supabase.findUserAccount(name)
+            when {
+                remote is RemoteAccountResult.Online -> {
+                    val acc = remote.account
+                        ?: return@withContext "Akun \"$name\" belum terdaftar. Silakan daftar dulu."
+                    if (acc.passwordHash != sha256(acc.salt + password))
+                        return@withContext "Kata sandi salah. Coba lagi ya."
+                    // Cocok → simpan/perbarui salinan lokal, mulai sesi.
+                    upsertLocalAccount(acc)
+                    val local = db.userAccountDao().findByUsername(name)
+                    if (local != null) db.userAccountDao().touchLogin(local.id, System.currentTimeMillis())
+                    startSession(acc)
+                    retryUploadAccounts() // kirim akun lokal lain yang dulu gagal terunggah
+                    null
+                }
+                remote is RemoteAccountResult.Error -> {
+                    // 2) Offline / server bermasalah → fallback ke data lokal (tetap bisa dipakai).
+                    val account = db.userAccountDao().findByUsername(name)
+                        ?: return@withContext "Tidak ada koneksi internet dan akun \"$name\" belum pernah dibuat di HP ini. Silakan daftar saat online."
+                    if (account.passwordHash != sha256(account.salt + password))
+                        return@withContext "Kata sandi salah. Coba lagi ya."
+                    db.userAccountDao().touchLogin(account.id, System.currentTimeMillis())
+                    startSession(account)
+                    null
+                }
+                else -> null.also { } // tak tercapai
+            }
         }
+
+    /** Hasil pencarian akun di Supabase. */
+    sealed class RemoteAccountResult {
+        data class Online(val account: UserAccountEntity?) : RemoteAccountResult()
+        object Error : RemoteAccountResult()
+    }
+
+    /** Simpan/perbarui akun hasil unduhan server ke database lokal. */
+    private suspend fun upsertLocalAccount(acc: UserAccountEntity) {
+        try {
+            val dao = db.userAccountDao()
+            val existing = dao.findByUsername(acc.fullName)
+            if (existing == null) dao.insert(acc) else dao.update(acc.copy(id = existing.id))
+        } catch (e: Exception) { /* biarkan sesi tetap jalan walau cache lokal gagal */ }
+    }
 
     /** Keluar dari sesi. Data shift tetap aman tersimpan di HP ini. */
     fun signOut() {
@@ -186,7 +250,7 @@ class AccountManager private constructor(private val context: Context) {
     private fun startSession(account: UserAccountEntity) {
         prefs().edit()
             .putString(KEY_ACCOUNT_ID, account.id)
-            .putString("active_username", account.username)
+            .putString("active_username", account.fullName)
             .apply()
     }
 

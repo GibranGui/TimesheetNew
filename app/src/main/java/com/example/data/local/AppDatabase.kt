@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RosterEntity::class,
         DriverTemplateEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -118,6 +118,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Kolom penanda akun sudah terunggah ke Supabase (v5 -> v6). Data lama tetap utuh.
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addColumnIfMissing(db, "user_accounts", "uploadedToServer", "INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         // Tambah kolom hanya bila belum ada (aman dijalankan berulang).
         private fun addColumnIfMissing(
             db: SupportSQLiteDatabase,
@@ -165,7 +172,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "dt_timesheet_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance

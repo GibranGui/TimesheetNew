@@ -21,5 +21,7 @@ data class UserAccountEntity(
     val passwordHash: String,
     val salt: String,
     val createdAt: Long = System.currentTimeMillis(),
-    val lastLoginAt: Long = 0L
+    val lastLoginAt: Long = 0L,
+    /** True bila akun sudah berhasil diunggah ke Supabase (tabel user_accounts). */
+    val uploadedToServer: Boolean = false
 )

@@ -102,3 +102,44 @@ create policy "ritase_owner_rw" on ritase_events
 create policy "fuel_owner_rw" on fuel_entries
   for all using (owner_id = current_setting('request.headers', true)::json->>'x-owner-id')
   with check (owner_id = current_setting('request.headers', true)::json->>'x-owner-id');
+
+-- ============================================================
+-- v2.7: Tabel akun driver (§8 revisi — daftar & login via Supabase)
+-- Menyimpan: nama driver (sesuai jadwal), no hp, password HASH (SHA-256+salt).
+-- Kata sandi asli TIDAK PERNAH disimpan/dikirim.
+-- ============================================================
+
+create table if not exists driver_accounts (
+  id text primary key,
+  full_name text not null unique,
+  phone text not null default '',
+  password_hash text not null,
+  salt text not null,
+  created_at bigint not null default 0,
+  updated_at bigint not null default 0
+);
+
+-- Kebijakan akses (RLS):
+--   * anyone boleh INSERT/MENGGABUNGKAN (merge-duplicates) saat mendaftar;
+--   * SELECT hanya bisa dilakukan dengan header x-owner-id yang sama dengan
+--     full_name pemilik data (login dari HP lain tetap terbaca karena owner id
+--     turunan nama), atau service_role untuk keperluan admin.
+alter table driver_accounts enable row level security;
+
+drop policy if exists "driver_accounts_insert" on driver_accounts;
+drop policy if exists "driver_accounts_self_read" on driver_accounts;
+
+create policy "driver_accounts_insert" on driver_accounts
+  for insert with check (true);
+
+create policy "driver_accounts_self_read" on driver_accounts
+  for select using (
+    full_name = current_setting('request.headers', true)::json->>'x-owner-id'
+  );
+
+create policy "driver_accounts_self_update" on driver_accounts
+  for update using (
+    full_name = current_setting('request.headers', true)::json->>'x-owner-id'
+  ) with check (
+    full_name = current_setting('request.headers', true)::json->>'x-owner-id'
+  );

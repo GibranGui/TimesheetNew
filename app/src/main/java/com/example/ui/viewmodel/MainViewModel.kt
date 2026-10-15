@@ -191,6 +191,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Gagal ambil data (offline) tidak masalah — jadwal terakhir tetap tersimpan di HP.
      */
     private fun autoSyncRosterDaily() {
+        // §9 revisi: sinkronisasi jadwal HANYA saat aplikasi dibuka DAN sedang online.
+        if (!rosterSyncManager.isOnline()) return
         if (!rosterSyncManager.isDailySyncDue()) return
         if (_isRosterSyncing.value) return
         viewModelScope.launch {

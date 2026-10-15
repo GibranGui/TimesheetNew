@@ -153,6 +153,19 @@ class AccountManager private constructor(private val context: Context) {
         } catch (e: Exception) {
             return@withContext "Nama sudah terdaftar. Silakan login."
         }
+        // §8 revisi: unggah data akun (nama, no hp, password HASH — bukan sandi asli)
+        // ke Supabase agar bisa dipakai login dari HP lain. Kegagalan upload TIDAK
+        // memblokir pendaftaran (prinsip offline-first §9.3) — akun tetap aktif lokal.
+        try {
+            com.example.data.remote.SupabaseSyncClient(context).pushDriverAccount(
+                id = account.id,
+                fullName = account.fullName,
+                phone = account.phone,
+                passwordHash = account.passwordHash,
+                salt = account.salt,
+                createdAt = account.createdAt
+            )
+        } catch (e: Exception) { /* diam-diam; sinkron menyusul */ }
         startSession(account)
         null
     }
@@ -169,6 +182,15 @@ class AccountManager private constructor(private val context: Context) {
         withContext(Dispatchers.IO) {
             val name = driverName.trim().replace(Regex("\\s+"), " ")
             if (name.isBlank()) return@withContext "Nama driver tidak boleh kosong."
+            // §8 revisi: validasi MELALUI SUPABASE terlebih dahulu (data akun yang
+            // diunggah saat pendaftaran). Saat offline/server bermasalah, fungsi ini
+            // mengembalikan null (= tidak menolak) lalu dilanjutkan cek lokal (§9.3).
+            val remoteError = try {
+                com.example.data.remote.SupabaseSyncClient(context)
+                    .verifyDriverLogin(name, password)
+            } catch (e: Exception) { null }
+            if (remoteError != null) return@withContext remoteError
+
             val account = db.userAccountDao().findByUsername(name)
                 ?: return@withContext "Akun \"$name\" belum terdaftar. Silakan daftar dulu."
             if (account.passwordHash != sha256(account.salt + password))

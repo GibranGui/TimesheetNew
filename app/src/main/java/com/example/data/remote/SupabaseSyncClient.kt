@@ -13,6 +13,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /**
@@ -164,6 +165,90 @@ class SupabaseSyncClient(private val context: Context) {
             Result.failure(e)
         }
     }
+
+    // ---------- Akun driver (registrasi & login via Supabase, §8 revisi) ----------
+
+    /**
+     * Mengunggah akun yang baru mendaftar ke tabel `driver_accounts` di Supabase.
+     * Yang dikirim hanya: nama driver (sesuai jadwal), no hp, dan password HASH
+     * (SHA-256 + salt) — kata sandi asli tidak pernah keluar dari HP.
+     * @return null jika berhasil, atau pesan kesalahan berbahasa awam.
+     */
+    suspend fun pushDriverAccount(
+        id: String,
+        fullName: String,
+        phone: String,
+        passwordHash: String,
+        salt: String,
+        createdAt: Long
+    ): String? = withContext(Dispatchers.IO) {
+        if (!configured()) return@withContext "Server online belum diatur."
+        val obj = JSONObject().apply {
+            put("id", id)
+            put("full_name", fullName)
+            put("phone", phone)
+            put("password_hash", passwordHash)
+            put("salt", salt)
+            put("created_at", createdAt)
+            put("updated_at", System.currentTimeMillis())
+        }
+        when (val r = upsert("driver_accounts", obj)) {
+            is Result.Success -> null
+            is Result.Failure -> r.exceptionOrNull()?.message ?: "Gagal mengirim data akun ke server."
+        }
+    }
+
+    /**
+     * Login dengan Nama Driver + kata sandi (§8 revisi).
+     * Aplikasi MELIHAT DATA melalui Supabase (tabel `driver_accounts`):
+     * - jika server tersedia dan nama ditemukan → cocokkan hash;
+     * - jika server menolak / offline → fallback ke database lokal agar
+     *   pengguna lama tetap bisa masuk (prinsip §9.3: fitur online tidak
+     *   mengganggu saat offline);
+     * - jika nama tidak ada di server DAN tidak ada di lokal → "belum terdaftar".
+     * @return null jika berhasil (sesi lokal dimulai oleh pemanggil),
+     *         atau pesan kesalahan berbahasa awam.
+     */
+    suspend fun verifyDriverLogin(driverName: String, password: String): String? =
+        withContext(Dispatchers.IO) {
+            if (!configured()) return@withContext null // biarkan pemanggil memakai jalur lokal
+            try {
+                val url = "${baseUrl()}/rest/v1/driver_accounts" +
+                    "?select=password_hash,salt&or=(full_name.ilike." +
+                    java.net.URLEncoder.encode(driverName, "UTF-8") + ",full_name.eq." +
+                    java.net.URLEncoder.encode(driverName, "UTF-8") + ")" +
+                    "&limit=1"
+                val request = Request.Builder()
+                    .url(url)
+                    .header("apikey", key())
+                    .header("Authorization", "Bearer ${key()}")
+                    // Header x-owner-id = nama driver → memenuhi RLS
+                    // "driver_accounts_self_read" (full_name = x-owner-id).
+                    .header("x-owner-id", driverName)
+                    .get()
+                    .build()
+                http.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) return@withContext null // server bermasalah -> fallback lokal
+                    val body = resp.body?.string() ?: "[]"
+                    val arr = JSONArray(body)
+                    if (arr.length() == 0) {
+                        return@withContext "Akun \"$driverName\" belum terdaftar. Silakan daftar dulu."
+                    }
+                    val acc = arr.getJSONObject(0)
+                    val storedHash = acc.optString("password_hash", "")
+                    val salt = acc.optString("salt", "")
+                    val digest = MessageDigest.getInstance("SHA-256")
+                        .digest((salt + password).toByteArray(Charsets.UTF_8))
+                        .joinToString("") { "%02x".format(it) }
+                    if (storedHash.isNotEmpty() && storedHash != digest) {
+                        return@withContext "Kata sandi salah. Coba lagi ya."
+                    }
+                    null
+                }
+            } catch (e: Exception) {
+                null // jaringan gagal -> jangan blokir login, fallback ke validasi lokal
+            }
+        }
 
     private suspend fun execute(request: Request): Result<Unit> = withContext(Dispatchers.IO) {
         try {

@@ -90,6 +90,78 @@ class SupabaseSyncClient(private val context: Context) {
     /** Jumlah baris yang belum berhasil terkirim ke server. */
     suspend fun pendingCount(): Int = 0 // dihitung dari sisi database lokal
 
+    // ---------- Akun pengguna (validasi login lintas perangkat) ----------
+
+    /**
+     * Unggah akun yang baru mendaftar ke Supabase (tabel `user_accounts`).
+     * Yang dikirim: nama driver, no hp, hash+salt — BUKAN kata sandi asli.
+     * Gagal (offline/server belum diatur) tidak melempar exception; pemanggil
+     * tetap bisa lanjut dan akan mencoba ulang saat login berikutnya.
+     */
+    suspend fun pushUserAccount(account: com.example.data.local.UserAccountEntity): Boolean {
+        if (!configured()) return false
+        val obj = JSONObject().apply {
+            put("id", account.id)
+            put("full_name", account.fullName)
+            put("phone", account.phone)
+            put("password_hash", account.passwordHash)
+            put("salt", account.salt)
+            put("created_at", account.createdAt)
+        }
+        val result = upsert("user_accounts", obj)
+        return if (result.isSuccess) {
+            try { AppDatabase.getInstance(context).userAccountDao().markUploaded(account.id) } catch (e: Exception) { }
+            true
+        } else false
+    }
+
+    /**
+     * Cari akun atas nama driver tertentu di Supabase untuk validasi login.
+     * @return Online(null) jika online tapi nama tidak ditemukan (belum terdaftar);
+     *         Online(entity) jika ditemukan; Error jika offline/server bermasalah.
+     */
+    suspend fun findUserAccount(driverName: String): com.example.data.local.AccountManager.RemoteAccountResult =
+        withContext(Dispatchers.IO) {
+            if (!configured()) return@withContext com.example.data.local.AccountManager.RemoteAccountResult.Error
+            try {
+                val url = "${baseUrl()}/rest/v1/user_accounts" +
+                    "?full_name=ilike." + java.net.URLEncoder.encode(driverName, "UTF-8") +
+                    "&select=*&limit=1"
+                val request = Request.Builder()
+                    .url(url)
+                    .header("apikey", key())
+                    .header("Authorization", "Bearer ${key()}")
+                    .get()
+                    .build()
+                http.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) {
+                        return@withContext com.example.data.local.AccountManager.RemoteAccountResult.Error
+                    }
+                    val arr = JSONArray(resp.body?.string() ?: "[]")
+                    if (arr.length() == 0) {
+                        com.example.data.local.AccountManager.RemoteAccountResult.Online(null)
+                    } else {
+                        val o = arr.getJSONObject(0)
+                        com.example.data.local.AccountManager.RemoteAccountResult.Online(
+                            com.example.data.local.UserAccountEntity(
+                                id = o.optString("id").ifBlank { java.util.UUID.randomUUID().toString() },
+                                fullName = o.getString("full_name"),
+                                phone = o.optString("phone"),
+                                username = o.getString("full_name"),
+                                passwordHash = o.getString("password_hash"),
+                                salt = o.getString("salt"),
+                                createdAt = o.optLong("created_at", System.currentTimeMillis()),
+                                lastLoginAt = 0L,
+                                uploadedToServer = true
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                com.example.data.local.AccountManager.RemoteAccountResult.Error
+            }
+        }
+
     // ---------- AMBIL (pull) ----------
 
     suspend fun pullShiftsUpdatedSince(sinceMillis: Long, driverName: String = ""): Result<List<ShiftEntity>> =

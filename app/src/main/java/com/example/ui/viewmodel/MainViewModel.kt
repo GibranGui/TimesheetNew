@@ -191,7 +191,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Gagal ambil data (offline) tidak masalah — jadwal terakhir tetap tersimpan di HP.
      */
     private fun autoSyncRosterDaily() {
-        // §9 revisi: sinkronisasi jadwal HANYA saat aplikasi dibuka DAN sedang online.
+        // Sinkron jadwal HANYA saat aplikasi dibuka dan sedang online (§ permintaan user);
+        // membuka tab tidak memicu sinkron otomatis. Offline → pakai data tersimpan.
         if (!rosterSyncManager.isOnline()) return
         if (!rosterSyncManager.isDailySyncDue()) return
         if (_isRosterSyncing.value) return
@@ -313,7 +314,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiError.value = error
             } else {
                 refreshAccountState()
-                _successMessage.value = "Akun berhasil dibuat. Selamat datang, $fullName!"
+                // Beritahu pengguna bila server belum bisa dihubungi saat mendaftar,
+                // supaya tahu akunnya baru aktif di HP ini sampai terunggah ke Supabase.
+                _successMessage.value = "Akun berhasil dibuat. Selamat datang, $fullName!" +
+                    if (!rosterSyncManager.isOnline()) " (Data akun akan terkirim ke server saat online.)" else ""
             }
         }
     }

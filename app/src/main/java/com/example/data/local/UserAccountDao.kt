@@ -28,4 +28,11 @@ interface UserAccountDao {
 
     @Query("UPDATE user_accounts SET lastLoginAt = :now WHERE id = :id")
     suspend fun touchLogin(id: String, now: Long)
+
+    @Update
+    suspend fun update(account: UserAccountEntity)
+
+    /** Tandai akun sudah berhasil diunggah ke Supabase. */
+    @Query("UPDATE user_accounts SET uploadedToServer = 1 WHERE id = :id")
+    suspend fun markUploaded(id: String)
 }
